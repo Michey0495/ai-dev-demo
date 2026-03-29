@@ -11,6 +11,39 @@
 - 「AIが出したものを人間がどう検証するか」を毎回挟むのがポイント
 
 
+## 統合Skills構成（全ステップ一貫デモ用）
+
+一気通貫デモを実行する際は、以下のSkills/Hooks/MCPを事前にセットアップしておく。各ステップの出力が次のステップの入力になるため、セッション記憶とワークフロー管理が軸になる。
+
+| 種別 | 名前 | 役割 |
+|------|------|------|
+| Hook | claude-subconscious | セッション間の記憶保持。Step 1の要件をStep 8まで一貫して参照可能にする |
+| Workflow | claude-code-spec-workflow | 各ステップの成果物をスペックとして管理し、次ステップへ自動引き渡し |
+| Skill | simplify | 生成コードの品質チェック・リファクタリングを各ステップ後に実行 |
+| Skill | drawio | ER図・APIフロー図・アーキテクチャ図をdraw.io形式で出力 |
+| Skill | ui-ux-pro-max | UIプロトタイプ生成時のデザイン選定（50スタイル/21パレットDB） |
+| Skill | react-best-practices | フロントエンド生成コードのパフォーマンス最適化 |
+| Skill | claude-api | OpenAPI仕様・SDK・型定義の生成 |
+| Skill | pm-skills | 要件の構造化・優先度付け・ステークホルダー管理 |
+| Skill | web-design-guidelines | UIのアクセシビリティ・UX準拠チェック |
+| MCP | Figma MCP | Figmaデザインとコードの双方向同期（UIステップで使用） |
+| MCP | chrome-devtools MCP | ブラウザ上の動作確認・ログ取得（デバッグステップで使用） |
+| Tool | site2skill | 外部ドキュメントサイトからベストプラクティスを取り込み |
+| Hook | PostToolUse Hook | ファイル保存のたびにセキュリティスキャン・ドキュメント更新を自動トリガー |
+
+セットアップコマンド例:
+```bash
+# Skills インストール
+claude skills add simplify drawio ui-ux-pro-max react-best-practices claude-api pm-skills web-design-guidelines
+
+# Hooks 有効化
+claude hooks enable claude-subconscious
+
+# MCP サーバー接続
+claude mcp add figma chrome-devtools
+```
+
+
 ## ステップ一覧
 
 ### Step 1: 要件定義（01-requirements.md）
@@ -26,6 +59,8 @@ AIへの指示:
 - 既存システムとの連携要件が漏れていないか
 - 優先度の判断はAIに任せず、ビジネス側と合意する
 
+推奨Skills: pm-skills（要件構造化）、claude-subconscious（ヒアリング記憶）、drawio（ユースケース図）
+
 
 ### Step 2: DB設計（02-db-schema.sql）
 
@@ -39,6 +74,8 @@ AIへの指示:
 - インデックスの選定（過不足）
 - 将来の拡張性（カラム追加しやすい構造か）
 - 機密データの暗号化カラムが適切か
+
+推奨Skills: drawio（ER図生成）、claude-code-spec-workflow（スキーマ管理）、site2skill（DB設計ベストプラクティス取り込み）
 
 
 ### Step 3: API設計（03-api-spec.yaml）
@@ -54,6 +91,8 @@ AIへの指示:
 - ページネーションやフィルタリングの仕様
 - HTTPステータスコードの使い分け
 
+推奨Skills: claude-api（OpenAPI・SDK生成）、claude-code-spec-workflow（API仕様管理）、drawio（シーケンス図）
+
 
 ### Step 4: UIプロトタイプ（04-ui-prototype.html）
 
@@ -67,6 +106,8 @@ AIへの指示:
 - モバイル表示の崩れがないか
 - UXの観点で違和感がないか（吹き出しの向き、タイムスタンプの位置）
 - アクセシビリティの基本項目
+
+推奨Skills: ui-ux-pro-max（デザイン選定）、Figma MCP（デザイン連携）、react-best-practices（React最適化）
 
 
 ### Step 5: API実装（05-implementation.ts）
@@ -82,6 +123,8 @@ AIへの指示:
 - 認証ミドルウェアの適用範囲
 - N+1問題を起こしそうなクエリがないか
 
+推奨Skills: claude-api（Zod/型定義生成）、react-best-practices（フロント最適化）、claude-code-spec-workflow（仕様との照合）
+
 
 ### Step 6: テストコード（06-tests.ts）
 
@@ -95,6 +138,8 @@ AIへの指示:
 - 境界値の選定が適切か
 - モックの粒度（外部依存をどこまで切るか）
 - カバレッジの偏り
+
+推奨Skills: simplify（テスト対象リファクタ）、claude-subconscious（失敗パターン記憶）、claude-code-spec-workflow（仕様からテスト観点導出）
 
 
 ### Step 7: コードレビュー（07-review-report.md）
@@ -110,6 +155,8 @@ AIへの指示:
 - 「直すべき」と「好みの問題」を区別する
 - チーム固有のコーディング規約との照合
 
+推奨Skills: simplify（指摘の自動修正）、web-design-guidelines（UI変更のUXチェック）、PostToolUse Hook（PR作成時に自動レビュー）
+
 
 ### Step 8: ドキュメント生成（08-docs.md）
 
@@ -123,6 +170,8 @@ AIへの指示:
 - 運用チームが読んで理解できる粒度か
 - 機密情報（接続文字列など）が混入していないか
 - バージョン情報やメンテナンス方針
+
+推奨Skills: claude-code-spec-workflow（コード変更連動更新）、drawio（アーキテクチャ図）、PostToolUse Hook（ファイル編集時にドキュメント自動更新）
 
 
 ## デモ全体の所要時間
