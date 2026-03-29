@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>04 UIプロトタイプ - ワイヤーフレームからUI生成デモ</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            navy: {
+              50: '#eef2f7',
+              100: '#d4dde8',
+              200: '#a9bbcf',
+              300: '#7e99b6',
+              400: '#53779d',
+              500: '#2d5a84',
+              600: '#1e3a5f',
+              700: '#172e4c',
+              800: '#102239',
+              900: '#091626',
+            },
+            warm: {
+              50: '#f9fafb',
+              100: '#f3f4f6',
+              200: '#e5e7eb',
+              300: '#d1d5db',
+              400: '#9ca3af',
+              500: '#6b7280',
+              600: '#4b5563',
+              700: '#374151',
+            },
+          },
+        },
+      },
+    }
+  </script>
+  <link href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet">
+  <style>
+    html { scroll-behavior: smooth; }
+
+    /* Prism上書き: 背景を統一 */
+    pre[class*="language-"] {
+      background: #0d1b2a !important;
+      border-radius: 8px;
+      font-size: 12px;
+      line-height: 1.6;
+      max-height: 480px;
+      overflow: auto;
+    }
+    code[class*="language-"] {
+      font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+      font-size: 12px;
+    }
+
+    /* 注釈マーカー */
+    .annotation-bad {
+      background: rgba(30, 58, 95, 0.06);
+      border-left: 3px solid #9ca3af;
+      padding: 10px 14px;
+      margin: 8px 0;
+      font-size: 13px;
+      color: #4b5563;
+    }
+    .annotation-good {
+      background: rgba(30, 58, 95, 0.06);
+      border-left: 3px solid #1e3a5f;
+      padding: 10px 14px;
+      margin: 8px 0;
+      font-size: 13px;
+      color: #1e3a5f;
+    }
+
+    /* コピーボタン */
+    .copy-btn {
+      transition: all 0.2s;
+    }
+    .copy-btn:hover {
+      background: #1e3a5f;
+      color: white;
+    }
+    .copy-btn.copied {
+      background: #1e3a5f;
+      color: white;
+    }
+
+    /* 比較カラムのタブ */
+    .tab-btn {
+      transition: all 0.15s;
+    }
+    .tab-btn.active {
+      background: #1e3a5f;
+      color: white;
+    }
+
+    /* カード hover */
+    .diff-card {
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .diff-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(30, 58, 95, 0.12);
+    }
+
+    /* スクロールバー */
+    pre::-webkit-scrollbar { width: 6px; height: 6px; }
+    pre::-webkit-scrollbar-track { background: transparent; }
+    pre::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
+  </style>
+</head>
+<body class="bg-white text-warm-700 min-h-screen">
+
+  <!-- ヘッダー -->
+  <header class="bg-navy-600 text-white sticky top-0 z-50 shadow-lg">
+    <div class="max-w-7xl mx-auto px-4 py-4 lg:px-8 flex items-center justify-between">
+      <div class="flex items-center gap-4">
+        <a href="../showcase/index.html" class="flex items-center gap-2 text-navy-200 hover:text-white transition-colors text-sm">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+          showcase
+        </a>
+        <div class="h-5 w-px bg-navy-400"></div>
+        <div>
+          <span class="text-navy-200 text-xs font-mono">04_ui-prototype</span>
+          <h1 class="text-lg font-bold tracking-wide leading-tight">UIプロトタイプ</h1>
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        <a href="before/dashboard.html" target="_blank" class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs border border-navy-400 rounded hover:bg-navy-500 transition-colors">
+          Before を開く
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+        </a>
+        <a href="expected-output/dashboard.html" target="_blank" class="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs bg-navy-400 rounded hover:bg-navy-300 transition-colors font-medium">
+          After を開く
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- ヒーロー -->
+  <section class="bg-gradient-to-b from-navy-50 to-white py-12 lg:py-16">
+    <div class="max-w-7xl mx-auto px-4 lg:px-8 text-center">
+      <p class="text-navy-400 text-sm font-medium tracking-wider uppercase mb-3">AI Coding Agent Demo</p>
+      <h2 class="text-2xl lg:text-3xl font-bold text-navy-600 mb-4">ワイヤーフレームから<br class="sm:hidden">UIプロトタイプへの変換</h2>
+      <p class="text-warm-500 max-w-2xl mx-auto leading-relaxed">
+        テキストで描いたワイヤーフレームをAI Coding Agentに渡すと、レスポンシブ対応・ダークモード・テーブルソート・SVGグラフ付きのダッシュボードが単一HTMLで出力される。Before/Afterの比較で、何がどう変わるかを確認できる。
+      </p>
+      <div class="flex justify-center gap-4 mt-8">
+        <a href="#comparison" class="px-5 py-2.5 bg-navy-600 text-white rounded-lg text-sm font-medium hover:bg-navy-700 transition-colors shadow-sm">
+          Before / After を比較する
+        </a>
+        <a href="#prompt" class="px-5 py-2.5 border border-navy-300 text-navy-600 rounded-lg text-sm font-medium hover:bg-navy-50 transition-colors">
+          プロンプトを見る
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Before/After 比較 -->
+  <section id="comparison" class="max-w-7xl mx-auto px-4 lg:px-8 py-12">
+    <div class="text-center mb-10">
+      <h2 class="text-xl lg:text-2xl font-bold text-navy-600 mb-2">Before / After コード比較</h2>
+      <p class="text-warm-500 text-sm">左が人間が書いたコード、右がAIが生成したコード</p>
+    </div>
+
+    <!-- モバイル用タブ切替 -->
+    <div class="flex lg:hidden gap-2 mb-4">
+      <button onclick="showTab('before')" id="tab-before" class="tab-btn active flex-1 py-2 text-sm font-medium rounded-lg border border-navy-200 text-center">Before</button>
+      <button onclick="showTab('after')" id="tab-after" class="tab-btn flex-1 py-2 text-sm font-medium rounded-lg border border-navy-200 text-center">After</button>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+      <!-- Before -->
+      <div id="panel-before" class="space-y-4">
+        <div class="flex items-center gap-3 mb-2">
+          <span class="inline-block w-3 h-3 rounded-full bg-warm-400"></span>
+          <h3 class="text-lg font-bold text-warm-600">Before: AI未使用</h3>
+          <a href="before/dashboard.html" target="_blank" class="ml-auto text-xs text-navy-400 hover:text-navy-600 transition-colors flex items-center gap-1">
+            別タブで開く
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+          </a>
+        </div>
+
+        <div class="annotation-bad">
+          width: 1200px の固定幅。画面を縮めるとコンテンツがはみ出す。レスポンシブ対応ゼロ。
+        </div>
+
+        <pre class="rounded-lg"><code class="language-html">&lt;!DOCTYPE html&gt;
+&lt;html&gt;
+&lt;head&gt;
+&lt;meta charset=&quot;UTF-8&quot;&gt;
+&lt;title&gt;営業ダッシュボード&lt;/title&gt;
+&lt;/head&gt;
+&lt;body style=&quot;margin: 0; font-family: Arial; background: #f0f0f0;&quot;&gt;
+
+&lt;!-- ヘッダー --&gt;
+&lt;div style=&quot;background-color: #333; color: white;
+  padding: 10px 20px; width: 1200px;
+  display: flex; justify-content: space-between;&quot;&gt;
+  &lt;div style=&quot;font-size: 20px; font-weight: bold;&quot;&gt;
+    営業管理システム
+  &lt;/div&gt;
+  &lt;div style=&quot;display: flex; gap: 10px;&quot;&gt;
+    &lt;input type=&quot;text&quot; placeholder=&quot;検索...&quot;
+      style=&quot;padding: 5px; width: 200px;&quot;&gt;
+    &lt;span style=&quot;padding: 5px;&quot;&gt;通知&lt;/span&gt;
+    &lt;span style=&quot;padding: 5px;&quot;&gt;山田 太郎&lt;/span&gt;
+  &lt;/div&gt;
+&lt;/div&gt;</code></pre>
+
+        <div class="annotation-bad">
+          div だけで構造化。header, nav, main, aside, footer のセマンティック要素がひとつもない。スクリーンリーダーは何も判別できない。
+        </div>
+
+        <pre class="rounded-lg"><code class="language-html">&lt;!-- サイドバー --&gt;
+&lt;div style=&quot;width: 200px; background-color: #e8e8e8;
+  padding: 15px; min-height: 800px;&quot;&gt;
+  &lt;div style=&quot;padding: 10px; background-color: #333;
+    color: white;&quot;&gt;ダッシュボード概要&lt;/div&gt;
+  &lt;div style=&quot;padding: 10px;&quot;&gt;顧客管理&lt;/div&gt;
+  &lt;div style=&quot;padding: 10px;&quot;&gt;商談管理&lt;/div&gt;
+  &lt;div style=&quot;padding: 10px;&quot;&gt;レポート&lt;/div&gt;
+  &lt;div style=&quot;padding: 10px;&quot;&gt;設定&lt;/div&gt;
+&lt;/div&gt;</code></pre>
+
+        <div class="annotation-bad">
+          テーブルヘッダーに th ではなく td を使用。状態バッジは緑・オレンジ・グレーの多色。グラフは「実装予定」のテキストのみ。
+        </div>
+
+        <pre class="rounded-lg"><code class="language-html">&lt;!-- テーブル: td で見出し行 --&gt;
+&lt;tr style=&quot;background-color: #555; color: white;&quot;&gt;
+  &lt;td style=&quot;padding: 12px; border: 1px solid #ddd;
+    font-weight: bold;&quot;&gt;注文番号&lt;/td&gt;
+  &lt;td style=&quot;padding: 12px; border: 1px solid #ddd;
+    font-weight: bold;&quot;&gt;顧客名&lt;/td&gt;
+  ...
+&lt;/tr&gt;
+
+&lt;!-- 状態バッジ: 多色 --&gt;
+&lt;span style=&quot;background: #22c55e; color: white;
+  padding: 2px 8px;&quot;&gt;完了&lt;/span&gt;
+&lt;span style=&quot;background: #f59e0b; color: white;
+  padding: 2px 8px;&quot;&gt;処理中&lt;/span&gt;
+
+&lt;!-- グラフ: 空 --&gt;
+&lt;div style=&quot;color: gray; text-align: center;
+  padding-top: 80px;&quot;&gt;
+  グラフ表示エリア（Chart.js等で実装予定）
+&lt;/div&gt;</code></pre>
+      </div>
+
+      <!-- After -->
+      <div id="panel-after" class="space-y-4 hidden lg:block">
+        <div class="flex items-center gap-3 mb-2">
+          <span class="inline-block w-3 h-3 rounded-full bg-navy-600"></span>
+          <h3 class="text-lg font-bold text-navy-600">After: AI活用</h3>
+          <a href="expected-output/dashboard.html" target="_blank" class="ml-auto text-xs text-navy-400 hover:text-navy-600 transition-colors flex items-center gap-1">
+            別タブで開く
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+          </a>
+        </div>
+
+        <div class="annotation-good">
+          セマンティックHTML + Tailwind CSS。header, aside, main, footer で構造化。aria-label でスクリーンリーダー対応。
+        </div>
+
+        <pre class="rounded-lg"><code class="language-html">&lt;html lang=&quot;ja&quot;&gt;
+&lt;head&gt;
+  &lt;meta name=&quot;viewport&quot;
+    content=&quot;width=device-width, initial-scale=1.0&quot;&gt;
+  &lt;script src=&quot;https://cdn.tailwindcss.com&quot;&gt;&lt;/script&gt;
+  &lt;script&gt;
+    tailwind.config = {
+      darkMode: 'class',
+      theme: { extend: { colors: {
+        navy: {
+          600: '#1e3a5f', 700: '#172e4c',
+          800: '#102239', 900: '#091626', ...
+        }
+      }}}
+    }
+  &lt;/script&gt;
+&lt;/head&gt;
+&lt;body class=&quot;bg-gray-50 text-gray-800 min-h-screen
+  flex flex-col dark:bg-navy-900 dark:text-gray-200&quot;&gt;
+
+&lt;header class=&quot;bg-navy-600 text-white&quot;
+  aria-label=&quot;サイトヘッダー&quot;&gt;
+  ...
+&lt;/header&gt;</code></pre>
+
+        <div class="annotation-good">
+          KPIカードはレスポンシブグリッド。モバイル1列、タブレット2列、デスクトップ4列。ダークモード対応クラスも全要素に適用。
+        </div>
+
+        <pre class="rounded-lg"><code class="language-html">&lt;!-- KPIカード: レスポンシブ 3段階 --&gt;
+&lt;section class=&quot;grid grid-cols-1 sm:grid-cols-2
+  xl:grid-cols-4 gap-4 mb-8&quot;
+  aria-label=&quot;主要指標&quot;&gt;
+  &lt;div class=&quot;bg-white rounded-lg shadow-sm
+    border border-gray-200 p-5
+    dark:bg-navy-800 dark:border-navy-700&quot;&gt;
+    &lt;p class=&quot;text-sm text-gray-500
+      dark:text-gray-400&quot;&gt;月間売上&lt;/p&gt;
+    &lt;p class=&quot;text-2xl font-bold text-gray-900 mt-1
+      dark:text-gray-100&quot;&gt;¥12,500,000&lt;/p&gt;
+    &lt;div class=&quot;flex items-center mt-2&quot;&gt;
+      &lt;span class=&quot;text-sm text-navy-600 ml-1
+        font-medium dark:text-navy-300&quot;&gt;
+        +8.2%
+      &lt;/span&gt;
+      &lt;span class=&quot;text-xs text-gray-400 ml-2&quot;&gt;
+        前月比
+      &lt;/span&gt;
+    &lt;/div&gt;
+  &lt;/div&gt;
+  ...
+&lt;/section&gt;</code></pre>
+
+        <div class="annotation-good">
+          SVGで折れ線グラフを描画。各データポイントにホバーツールチップ。テーブルは列ヘッダークリックでソート可能。data-raw属性で数値・日付の正確なソートを実現。
+        </div>
+
+        <pre class="rounded-lg"><code class="language-html">&lt;!-- SVGグラフ: ホバーツールチップ付き --&gt;
+&lt;svg viewBox=&quot;0 0 560 200&quot;&gt;
+  &lt;polyline points=&quot;90,105 190,72 290,125
+    390,50 440,35 540,60&quot;
+    fill=&quot;none&quot; stroke=&quot;#1e3a5f&quot;
+    stroke-width=&quot;2.5&quot;/&gt;
+  &lt;circle cx=&quot;90&quot; cy=&quot;105&quot; r=&quot;5&quot;
+    fill=&quot;#1e3a5f&quot; class=&quot;chart-dot&quot;/&gt;
+  &lt;g class=&quot;chart-tooltip&quot;&gt;
+    &lt;rect x=&quot;55&quot; y=&quot;78&quot; width=&quot;70&quot; height=&quot;22&quot;
+      rx=&quot;4&quot; fill=&quot;#1e3a5f&quot;/&gt;
+    &lt;text x=&quot;90&quot; y=&quot;93&quot; fill=&quot;white&quot;
+      font-size=&quot;10&quot;&gt;&#165;8.5M&lt;/text&gt;
+  &lt;/g&gt;
+&lt;/svg&gt;
+
+&lt;!-- テーブルソート: vanilla JS --&gt;
+&lt;th data-sort=&quot;number&quot; data-col=&quot;2&quot;&gt;
+  金額 &lt;span class=&quot;sort-indicator&quot;&gt;...&lt;/span&gt;
+&lt;/th&gt;
+&lt;td data-raw=&quot;580000&quot;&gt;&#165;580,000&lt;/td&gt;</code></pre>
+
+        <pre class="rounded-lg"><code class="language-javascript">// ダークモード切替
+const darkToggle = document.getElementById('darkToggle');
+if (window.matchMedia(
+  '(prefers-color-scheme: dark)').matches) {
+  document.documentElement.classList.add('dark');
+}
+darkToggle.addEventListener('click', () =&gt; {
+  document.documentElement.classList.toggle('dark');
+});
+
+// テーブルソート
+headers.forEach(th =&gt; {
+  th.addEventListener('click', () =&gt; {
+    const col = parseInt(th.dataset.col, 10);
+    const type = th.dataset.sort;
+    // 数値・日付・文字列で比較方式を分岐
+    rows.sort((a, b) =&gt; {
+      if (type === 'number') {
+        valA = parseInt(
+          cellA.dataset.raw, 10);
+        ...
+      }
+    });
+  });
+});</code></pre>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- 差分ハイライトカード -->
+  <section class="bg-navy-50 py-12">
+    <div class="max-w-7xl mx-auto px-4 lg:px-8">
+      <div class="text-center mb-10">
+        <h2 class="text-xl lg:text-2xl font-bold text-navy-600 mb-2">Before vs After 主要な差分</h2>
+        <p class="text-warm-500 text-sm">AIが1回のプロンプトで追加した改善ポイント</p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+
+        <div class="diff-card bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="w-10 h-10 bg-navy-600 rounded-lg flex items-center justify-center">
+              <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"/></svg>
+            </div>
+            <h3 class="font-bold text-navy-600">レスポンシブ 3段階</h3>
+          </div>
+          <p class="text-warm-500 text-sm leading-relaxed">固定幅 1200px から、モバイル / タブレット / デスクトップの3段階に。KPIカードは 1列 / 2列 / 4列で自動切替。サイドバーはデスクトップのみ表示。</p>
+          <div class="mt-4 flex gap-2">
+            <span class="text-xs px-2 py-1 bg-warm-100 text-warm-600 rounded">Before: 固定幅</span>
+            <span class="text-xs px-2 py-1 bg-navy-100 text-navy-600 rounded">After: Tailwind Grid</span>
+          </div>
+        </div>
+
+        <div class="diff-card bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="w-10 h-10 bg-navy-600 rounded-lg flex items-center justify-center">
+              <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+            </div>
+            <h3 class="font-bold text-navy-600">ダークモード</h3>
+          </div>
+          <p class="text-warm-500 text-sm leading-relaxed">OS設定を初期値に読み込み、ヘッダーのトグルで切替可能。Tailwind の darkMode: 'class' 方式で、全要素に dark: プレフィックスを適用。</p>
+          <div class="mt-4 flex gap-2">
+            <span class="text-xs px-2 py-1 bg-warm-100 text-warm-600 rounded">Before: なし</span>
+            <span class="text-xs px-2 py-1 bg-navy-100 text-navy-600 rounded">After: class切替</span>
+          </div>
+        </div>
+
+        <div class="diff-card bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="w-10 h-10 bg-navy-600 rounded-lg flex items-center justify-center">
+              <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z"/></svg>
+            </div>
+            <h3 class="font-bold text-navy-600">SVGグラフ + ツールチップ</h3>
+          </div>
+          <p class="text-warm-500 text-sm leading-relaxed">「実装予定」のプレースホルダーから、SVG polyline による折れ線グラフに。各データポイントにホバーで金額が表示されるツールチップを実装。</p>
+          <div class="mt-4 flex gap-2">
+            <span class="text-xs px-2 py-1 bg-warm-100 text-warm-600 rounded">Before: テキストのみ</span>
+            <span class="text-xs px-2 py-1 bg-navy-100 text-navy-600 rounded">After: インタラクティブSVG</span>
+          </div>
+        </div>
+
+        <div class="diff-card bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="w-10 h-10 bg-navy-600 rounded-lg flex items-center justify-center">
+              <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"/></svg>
+            </div>
+            <h3 class="font-bold text-navy-600">テーブルソート</h3>
+          </div>
+          <p class="text-warm-500 text-sm leading-relaxed">列ヘッダークリックで昇順/降順ソート。金額は data-raw 属性で数値比較、日付は ISO形式でソート。ソート中の列にはインジケーターが表示される。</p>
+          <div class="mt-4 flex gap-2">
+            <span class="text-xs px-2 py-1 bg-warm-100 text-warm-600 rounded">Before: 静的テーブル</span>
+            <span class="text-xs px-2 py-1 bg-navy-100 text-navy-600 rounded">After: vanilla JSソート</span>
+          </div>
+        </div>
+
+        <div class="diff-card bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+          <div class="flex items-center gap-3 mb-3">
+            <div class="w-10 h-10 bg-navy-600 rounded-lg flex items-center justify-center">
+              <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+            </div>
+            <h3 class="font-bold text-navy-600">セマンティックHTML + a11y</h3>
+          </div>
+          <p class="text-warm-500 text-sm leading-relaxed">div の入れ子から header / aside / main / footer に変更。aria-label でランドマークを明示。テーブルは thead + th で正しくマークアップ。</p>
+          <div class="mt-4 flex gap-2">
+            <span class="text-xs px-2 py-1 bg-warm-100 text-warm-600 rounded">Before: div地獄</span>
+            <span class="text-xs px-2 py-1 bg-navy-100 text-navy-600 rounded">After: セマンティック</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- プロンプトセクション -->
+  <section id="prompt" class="max-w-7xl mx-auto px-4 lg:px-8 py-12">
+    <div class="text-center mb-10">
+      <h2 class="text-xl lg:text-2xl font-bold text-navy-600 mb-2">使用したプロンプト</h2>
+      <p class="text-warm-500 text-sm">このプロンプトを wireframe.md と一緒にClaude Codeに投入する</p>
+    </div>
+
+    <div class="bg-white border border-gray-200 rounded-xl shadow-sm overflow-hidden">
+      <div class="flex items-center justify-between px-5 py-3 bg-navy-50 border-b border-gray-200">
+        <div class="flex items-center gap-2">
+          <span class="w-2.5 h-2.5 rounded-full bg-navy-300"></span>
+          <span class="text-sm font-medium text-navy-600">with-ai/prompt.md</span>
+        </div>
+        <button onclick="copyPrompt(this)" class="copy-btn flex items-center gap-1.5 px-3 py-1.5 text-xs border border-navy-300 text-navy-600 rounded hover:bg-navy-600 hover:text-white transition-all">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+          コピー
+        </button>
+      </div>
+      <div class="p-5">
+        <pre id="promptContent" class="rounded-lg"><code class="language-markdown">添付したワイヤーフレーム（wireframe.md）をもとに、ブラウザで直接開ける単一HTMLファイルとして
+営業ダッシュボードのUIプロトタイプを作成してください。
+
+## 技術要件
+
+- Tailwind CSS v3をCDN経由で読み込む（他の外部依存なし）
+- 単一HTMLファイルで完結させる
+- セマンティックHTML: header, nav, main, aside, section, footer を適切に使う
+- アクセシビリティ: 主要なランドマークにaria-label属性を付与する
+
+## レスポンシブ 3段階
+
+| 段階 | 幅 | サイドバー | KPIカード | テーブル |
+|------|-----|-----------|----------|---------|
+| モバイル | 〜767px | 非表示 | 1列 | 横スクロール |
+| タブレット | 768px〜1023px | 非表示 | 2列 | 横スクロール |
+| デスクトップ | 1024px〜 | 常時表示（左240px） | 4列 | 全幅表示 |
+
+## 配色ルール（厳守）
+
+使える色はネイビー系とウォームグレー系の2系統のみ。
+
+- ネイビー基調: #1e3a5f（メイン）、濃淡は #091626〜#eef2f7 の範囲
+- ウォームグレー: #6b7280（テキスト補助）、#f9fafb / #f3f4f6（背景）
+- 背景は白系（#ffffff または #f9fafb）
+- 状態バッジの区別は、ネイビーの濃淡とグレーの濃淡で表現する
+- 緑・オレンジ・赤のような多色は一切使わない
+- 絵文字は一切使わない
+
+## ダークモード
+
+- html要素に class=&quot;dark&quot; を付与して切替える方式（Tailwind darkMode: 'class'）
+- ヘッダー右にトグルボタンを配置する
+- OS設定（prefers-color-scheme）を初期値として読み込む
+- ダーク時の背景は #091626〜#102239、カードは #172e4c、テキストは #d4dde8
+
+## グラフエリア
+
+- CSSとインラインSVGのみで折れ線グラフを描画する（Chart.js等は不要）
+- 6つのデータポイント（10月〜3月）を打ち、polylineで接続する
+- 各データポイントにホバーで金額を表示するツールチップを実装する
+- ツールチップはSVG内の rect + text で構成し、JSでopacityを切替える
+- タッチデバイスでもタップで表示されるようにする
+
+## テーブル機能
+
+- 列ヘッダーをクリックすると昇順/降順でソートできる（vanilla JS）
+- 金額列は数値としてソートする（data-raw属性に数値を持たせる）
+- 日付列はISO形式の data-raw属性でソートする
+- ソート中の列ヘッダーに視覚的なフィードバックを入れる
+
+## コンテンツ
+
+- ワイヤーフレームに記載されたサンプルデータをそのまま使用する
+- テキストは全て日本語
+- 日付や金額のフォーマットは日本式（&#165;記号、yyyy/mm/dd）</code></pre>
+      </div>
+    </div>
+
+    <div class="mt-6 bg-navy-50 border border-navy-100 rounded-lg p-5">
+      <h3 class="font-bold text-navy-600 text-sm mb-2">プロンプト設計のポイント</h3>
+      <ul class="space-y-2 text-sm text-warm-600">
+        <li class="flex items-start gap-2">
+          <span class="w-1.5 h-1.5 rounded-full bg-navy-400 mt-1.5 flex-shrink-0"></span>
+          配色を16進数で指定し、ブレイクポイントをピクセル値で区切る。AIが判断する余地を減らすほど、出力のブレが小さくなる。
+        </li>
+        <li class="flex items-start gap-2">
+          <span class="w-1.5 h-1.5 rounded-full bg-navy-400 mt-1.5 flex-shrink-0"></span>
+          ワイヤーフレームとプロンプトを分離する構成にすると、デザイン方針だけ差し替えて別バリエーションを試せる。
+        </li>
+        <li class="flex items-start gap-2">
+          <span class="w-1.5 h-1.5 rounded-full bg-navy-400 mt-1.5 flex-shrink-0"></span>
+          テーブルソートやグラフツールチップのような動的機能を含めると、「見るだけのモック」から「触って検証できるプロトタイプ」に変わる。
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- フッター -->
+  <footer class="bg-navy-600 text-navy-200">
+    <div class="max-w-7xl mx-auto px-4 py-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <span class="text-xs">&copy; 2026 AI開発デモ集</span>
+      <a href="../showcase/index.html" class="flex items-center gap-2 px-4 py-2 border border-navy-400 rounded-lg text-sm hover:bg-navy-500 transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        showcase に戻る
+      </a>
+    </div>
+  </footer>
+
+  <!-- Prism.js -->
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-markup.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-javascript.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-markdown.min.js"></script>
+  <script>
+    // モバイルタブ切替
+    function showTab(tab) {
+      const panelBefore = document.getElementById('panel-before');
+      const panelAfter = document.getElementById('panel-after');
+      const tabBefore = document.getElementById('tab-before');
+      const tabAfter = document.getElementById('tab-after');
+
+      if (tab === 'before') {
+        panelBefore.classList.remove('hidden');
+        panelAfter.classList.add('hidden');
+        tabBefore.classList.add('active');
+        tabAfter.classList.remove('active');
+      } else {
+        panelBefore.classList.add('hidden');
+        panelAfter.classList.remove('hidden');
+        tabAfter.classList.add('active');
+        tabBefore.classList.remove('active');
+      }
+    }
+
+    // lgブレイクポイント以上では両方表示
+    const mediaQuery = window.matchMedia('(min-width: 1024px)');
+    function handleBreakpoint(e) {
+      const panelBefore = document.getElementById('panel-before');
+      const panelAfter = document.getElementById('panel-after');
+      if (e.matches) {
+        panelBefore.classList.remove('hidden');
+        panelAfter.classList.remove('hidden');
+      } else {
+        // モバイルではアクティブなタブだけ表示
+        const isAfterActive = document.getElementById('tab-after').classList.contains('active');
+        if (isAfterActive) {
+          panelBefore.classList.add('hidden');
+          panelAfter.classList.remove('hidden');
+        } else {
+          panelBefore.classList.remove('hidden');
+          panelAfter.classList.add('hidden');
+        }
+      }
+    }
+    mediaQuery.addEventListener('change', handleBreakpoint);
+
+    // プロンプトコピー
+    function copyPrompt(btn) {
+      const code = document.querySelector('#promptContent code');
+      const text = code.textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        btn.innerHTML = `
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+          コピー済み
+        `;
+        btn.classList.add('copied');
+        setTimeout(() => {
+          btn.innerHTML = `
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"/></svg>
+            コピー
+          `;
+          btn.classList.remove('copied');
+        }, 2000);
+      });
+    }
+  </script>
+
+</body>
+</html>

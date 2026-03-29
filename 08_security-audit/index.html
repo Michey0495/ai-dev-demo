@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>08 セキュリティ診断 -- 脆弱性の自動検出</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            navy: {
+              50: '#f0f4f8',
+              100: '#d9e2ec',
+              200: '#bcccdc',
+              300: '#9fb3c8',
+              400: '#829ab1',
+              500: '#627d98',
+              600: '#486581',
+              700: '#334e68',
+              800: '#1e3a5f',
+              900: '#102a43',
+            },
+            warm: {
+              50: '#fafaf9',
+              100: '#f5f5f4',
+              200: '#e7e5e4',
+              300: '#d6d3d1',
+              400: '#a8a29e',
+              500: '#6b7280',
+              600: '#57534e',
+              700: '#44403c',
+              800: '#292524',
+              900: '#1c1917',
+            },
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif; }
+
+    .code-scroll { max-height: 480px; overflow-y: auto; }
+    .code-scroll::-webkit-scrollbar { width: 6px; }
+    .code-scroll::-webkit-scrollbar-track { background: #f5f5f4; border-radius: 3px; }
+    .code-scroll::-webkit-scrollbar-thumb { background: #bcccdc; border-radius: 3px; }
+
+    pre[class*="language-"] { margin: 0; border-radius: 0 0 8px 8px; font-size: 13px; line-height: 1.6; }
+    code[class*="language-"] { font-family: "SF Mono", "Fira Code", "Fira Mono", Menlo, Consolas, monospace; }
+
+    .tab-btn { transition: all 0.2s ease; }
+    .tab-btn.active { border-bottom: 3px solid #1e3a5f; color: #1e3a5f; font-weight: 600; }
+    .tab-btn:not(.active) { border-bottom: 3px solid transparent; color: #6b7280; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    .annotation-before { background: #fef2f2; border-left: 3px solid #dc2626; padding: 8px 12px; margin: 8px 0; font-size: 13px; color: #991b1b; border-radius: 0 6px 6px 0; }
+    .annotation-after { background: #eff6ff; border-left: 3px solid #1e3a5f; padding: 8px 12px; margin: 8px 0; font-size: 13px; color: #1e3a5f; border-radius: 0 6px 6px 0; }
+
+    .diff-card { transition: transform 0.15s ease, box-shadow 0.15s ease; }
+    .diff-card:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(30, 58, 95, 0.12); }
+
+    .copy-btn { transition: all 0.15s ease; }
+    .copy-btn:hover { background: #1e3a5f; color: #fff; }
+
+    .prompt-block { position: relative; }
+    .prompt-block pre { max-height: 520px; overflow-y: auto; }
+
+    @media (max-width: 1024px) {
+      .compare-grid { grid-template-columns: 1fr !important; }
+    }
+
+    .severity-critical { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+    .severity-high { background: #fff7ed; color: #9a3412; border: 1px solid #fed7aa; }
+    .severity-medium { background: #eff6ff; color: #1e3a5f; border: 1px solid #bcccdc; }
+
+    .stat-number { font-size: 2.5rem; font-weight: 700; line-height: 1; }
+
+    .fade-in { animation: fadeIn 0.4s ease-out; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  </style>
+</head>
+<body class="bg-white text-warm-800">
+
+  <!-- ヘッダー -->
+  <header class="bg-navy-800 text-white">
+    <div class="max-w-7xl mx-auto px-6 py-5 flex items-center justify-between">
+      <div class="flex items-center gap-4">
+        <span class="text-navy-200 text-sm font-mono tracking-wider">08</span>
+        <div class="w-px h-8 bg-navy-600"></div>
+        <div>
+          <h1 class="text-xl font-bold tracking-tight">セキュリティ診断</h1>
+          <p class="text-navy-300 text-sm mt-0.5">脆弱性の自動検出 -- 人手レビュー vs AI監査</p>
+        </div>
+      </div>
+      <a href="../showcase/index.html" class="text-navy-300 hover:text-white text-sm flex items-center gap-1.5 transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        showcase に戻る
+      </a>
+    </div>
+  </header>
+
+  <!-- サマリ統計 -->
+  <section class="bg-navy-50 border-b border-navy-100">
+    <div class="max-w-7xl mx-auto px-6 py-10">
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+        <div class="bg-white rounded-lg p-6 border border-navy-100">
+          <p class="text-warm-500 text-sm mb-2">埋め込み脆弱性</p>
+          <p class="stat-number text-navy-800">10</p>
+          <p class="text-warm-400 text-xs mt-1">5ファイル / 約200行</p>
+        </div>
+        <div class="bg-white rounded-lg p-6 border border-navy-100">
+          <p class="text-warm-500 text-sm mb-2">人手レビュー検出</p>
+          <p class="stat-number text-warm-500">6<span class="text-lg font-normal text-warm-400"> / 10</span></p>
+          <p class="text-warm-400 text-xs mt-1">4件の見落とし</p>
+        </div>
+        <div class="bg-white rounded-lg p-6 border border-navy-100">
+          <p class="text-warm-500 text-sm mb-2">AI監査検出</p>
+          <p class="stat-number text-navy-800">10<span class="text-lg font-normal text-warm-400"> / 10</span></p>
+          <p class="text-warm-400 text-xs mt-1">全件検出 + 修正コード付き</p>
+        </div>
+        <div class="bg-white rounded-lg p-6 border border-navy-100">
+          <p class="text-warm-500 text-sm mb-2">Critical脆弱性</p>
+          <p class="stat-number" style="color: #991b1b;">3</p>
+          <p class="text-warm-400 text-xs mt-1">CVSS 9.1 - 9.8</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Before / After 比較 -->
+  <section class="max-w-7xl mx-auto px-6 py-12">
+    <div class="mb-8">
+      <h2 class="text-2xl font-bold text-navy-800 mb-2">Before / After 比較</h2>
+      <p class="text-warm-500">左: セキュリティ専任ではない開発者による手動レビュー。右: Claude Code による自動監査。</p>
+    </div>
+
+    <div class="compare-grid grid grid-cols-2 gap-6" style="grid-template-columns: 1fr 1fr;">
+
+      <!-- Before パネル -->
+      <div class="border border-warm-200 rounded-lg overflow-hidden">
+        <div class="bg-warm-100 px-5 py-3 flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="w-3 h-3 rounded-full" style="background: #dc2626;"></span>
+            <span class="font-semibold text-warm-700">Before -- 手動レビュー</span>
+          </div>
+          <span class="text-xs text-warm-400 font-mono">before/audit-report.md</span>
+        </div>
+        <div class="p-5">
+          <div class="annotation-before">検出 6件 / 全10件 -- 検出率 60%。CWE番号・CVSSスコアなし。攻撃シナリオの記載なし。</div>
+
+          <div class="mt-4 space-y-3">
+            <div class="border border-warm-200 rounded-lg p-4">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="text-xs font-mono px-2 py-0.5 rounded severity-critical">検出</span>
+                <span class="font-semibold text-sm text-warm-700">1. SQLインジェクション</span>
+              </div>
+              <p class="text-sm text-warm-500">auth.ts -- メールアドレスを文字列結合でSQLに埋め込み。パラメータ化クエリに変更を推奨。</p>
+            </div>
+            <div class="border border-warm-200 rounded-lg p-4">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="text-xs font-mono px-2 py-0.5 rounded severity-high">検出</span>
+                <span class="font-semibold text-sm text-warm-700">2. CORS全ドメイン許可</span>
+              </div>
+              <p class="text-sm text-warm-500">server.ts -- origin: "*" で全ドメインから叩ける。ホワイトリスト方式に変更を推奨。</p>
+            </div>
+            <div class="border border-warm-200 rounded-lg p-4">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="text-xs font-mono px-2 py-0.5 rounded severity-critical">検出</span>
+                <span class="font-semibold text-sm text-warm-700">3. JWTシークレット直書き</span>
+              </div>
+              <p class="text-sm text-warm-500">auth.ts -- シークレットがソースコードにハードコード。環境変数化を推奨。</p>
+            </div>
+            <div class="border border-warm-200 rounded-lg p-4">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="text-xs font-mono px-2 py-0.5 rounded severity-high">検出</span>
+                <span class="font-semibold text-sm text-warm-700">4. レート制限なし</span>
+              </div>
+              <p class="text-sm text-warm-500">server.ts -- ログインにブルートフォース耐性がゼロ。</p>
+            </div>
+            <div class="border border-warm-200 rounded-lg p-4">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="text-xs font-mono px-2 py-0.5 rounded severity-medium">検出</span>
+                <span class="font-semibold text-sm text-warm-700">5. セキュリティヘッダ未設定</span>
+              </div>
+              <p class="text-sm text-warm-500">middleware.ts -- helmet未導入。HSTS、X-Frame-Optionsなし。</p>
+            </div>
+            <div class="border border-warm-200 rounded-lg p-4">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="text-xs font-mono px-2 py-0.5 rounded severity-medium">検出</span>
+                <span class="font-semibold text-sm text-warm-700">6. 入力バリデーションなし</span>
+              </div>
+              <p class="text-sm text-warm-500">users.ts -- ID検証、メール形式チェック、パスワード強度チェックが欠如。</p>
+            </div>
+          </div>
+
+          <div class="annotation-before mt-4">見落とし 4件: パスワード平文保存、エラーメッセージ情報漏洩、CSRF未対策、DBファイルパーミッション不備</div>
+        </div>
+      </div>
+
+      <!-- After パネル -->
+      <div class="border border-navy-200 rounded-lg overflow-hidden">
+        <div class="bg-navy-800 px-5 py-3 flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="w-3 h-3 rounded-full" style="background: #60a5fa;"></span>
+            <span class="font-semibold text-white">After -- AI監査（Claude Code）</span>
+          </div>
+          <span class="text-xs text-navy-300 font-mono">expected-output/audit-report.md</span>
+        </div>
+        <div class="p-5">
+          <div class="annotation-after">検出 10件 / 全10件 -- 検出率 100%。CWE番号・CVSS v3.1スコア・攻撃シナリオ・修正コード付き。</div>
+
+          <div class="mt-4 space-y-3">
+            <div class="border border-navy-100 rounded-lg p-4 bg-white">
+              <div class="flex items-center gap-2 mb-1">
+                <span class="text-xs font-mono px-2 py-0.5 rounded severity-critical">Critical / 9.8</span>
+                <span class="font-semibold text-sm text-navy-800">V3: SQLインジェクション</span>
+              </div>
+              <p class="text-xs text-warm-400 font-mono mb-1">CWE-89 / A03:2021 Injection / auth.ts:29</p>
+              <p class="text-sm text-warm-600">文字列結合でSQLを組み立て。UNION SELECTで平文パスワードを直接抜き出し可能。</p>
+            </div>
+            <div class="border border-navy-100 rounded-lg p-4 bg-white">
+              <div class="flex items-center gap-2 mb-1">
+                <span class="text-xs font-mono px-2 py-0.5 rounded severity-critical">Critical / 9.1</span>
+                <span class="font-semibold text-sm text-navy-800">V4: パスワード平文保存</span>
+              </div>
+              <p class="text-xs text-warm-400 font-mono mb-1">CWE-256 / A02:2021 Cryptographic Failures / auth.ts:40,83</p>
+              <p class="text-sm text-warm-600">bcrypt未使用。DB漏洩で全パスワードが即座に判明。V3との連鎖で被害が拡大。</p>
+              <div class="annotation-after mt-2 text-xs">人手レビューで見落とし -- 平文比較に気づかなかった</div>
+            </div>
+            <div class="border border-navy-100 rounded-lg p-4 bg-white">
+              <div class="flex items-center gap-2 mb-1">
+                <span class="text-xs font-mono px-2 py-0.5 rounded severity-critical">Critical / 9.1</span>
+                <span class="font-semibold text-sm text-navy-800">V5: JWTシークレット直書き</span>
+              </div>
+              <p class="text-xs text-warm-400 font-mono mb-1">CWE-798 / A02:2021 Cryptographic Failures / auth.ts:10</p>
+              <p class="text-sm text-warm-600">リポジトリアクセス者が任意のトークンを偽造可能。環境変数化+未設定時の起動拒否で修正。</p>
+            </div>
+            <div class="border border-navy-100 rounded-lg p-4 bg-white">
+              <div class="flex items-center gap-2 mb-1">
+                <span class="text-xs font-mono px-2 py-0.5 rounded severity-high">High / 7.5</span>
+                <span class="font-semibold text-sm text-navy-800">V1: CORS全ドメイン許可</span>
+              </div>
+              <p class="text-xs text-warm-400 font-mono mb-1">CWE-942 / A05:2021 Security Misconfiguration / server.ts:19</p>
+              <p class="text-sm text-warm-600">任意オリジンからAPI呼び出し可。ホワイトリスト方式に変更。</p>
+            </div>
+            <div class="border border-navy-100 rounded-lg p-4 bg-white">
+              <div class="flex items-center gap-2 mb-1">
+                <span class="text-xs font-mono px-2 py-0.5 rounded severity-high">High / 7.5</span>
+                <span class="font-semibold text-sm text-navy-800">V2: レート制限なし</span>
+              </div>
+              <p class="text-xs text-warm-400 font-mono mb-1">CWE-307 / A07:2021 Auth Failures / server.ts:24</p>
+              <p class="text-sm text-warm-600">ブルートフォース耐性ゼロ。express-rate-limit で15分5回制限を設定。</p>
+            </div>
+            <div class="border border-navy-100 rounded-lg p-4 bg-white">
+              <div class="flex items-center gap-2 mb-1">
+                <span class="text-xs font-mono px-2 py-0.5 rounded severity-high">High / 7.4</span>
+                <span class="font-semibold text-sm text-navy-800">V9: セキュリティヘッダ未設定</span>
+              </div>
+              <p class="text-xs text-warm-400 font-mono mb-1">CWE-319 / A02:2021 Cryptographic Failures / middleware.ts:52-61</p>
+              <p class="text-sm text-warm-600">HSTS, X-Frame-Options, CSP がすべて欠如。helmet一行で解決。</p>
+            </div>
+            <div class="border border-navy-100 rounded-lg p-4 bg-white">
+              <div class="flex items-center gap-2 mb-1">
+                <span class="text-xs font-mono px-2 py-0.5 rounded severity-high">High / 7.1</span>
+                <span class="font-semibold text-sm text-navy-800">V10: DBファイルパーミッション不備</span>
+              </div>
+              <p class="text-xs text-warm-400 font-mono mb-1">CWE-732 / A01:2021 Broken Access Control / db.ts:33</p>
+              <p class="text-sm text-warm-600">0o666で全ユーザー読み書き可能。0o600に変更。WAL/SHMファイルも同様に制限。</p>
+              <div class="annotation-after mt-2 text-xs">人手レビューで見落とし -- ファイルI/O周りの確認が抜けていた</div>
+            </div>
+            <div class="border border-navy-100 rounded-lg p-4 bg-white">
+              <div class="flex items-center gap-2 mb-1">
+                <span class="text-xs font-mono px-2 py-0.5 rounded severity-medium">Medium / 6.5</span>
+                <span class="font-semibold text-sm text-navy-800">V8: CSRF対策なし</span>
+              </div>
+              <p class="text-xs text-warm-400 font-mono mb-1">CWE-352 / A01:2021 Broken Access Control / middleware.ts:39-47</p>
+              <p class="text-sm text-warm-600">空実装のスタブ。csrf-csrfパッケージでdouble submitパターンを実装。</p>
+              <div class="annotation-after mt-2 text-xs">人手レビューで見落とし -- 空実装を「実装済み」と誤認した可能性</div>
+            </div>
+            <div class="border border-navy-100 rounded-lg p-4 bg-white">
+              <div class="flex items-center gap-2 mb-1">
+                <span class="text-xs font-mono px-2 py-0.5 rounded severity-medium">Medium / 5.3</span>
+                <span class="font-semibold text-sm text-navy-800">V6: 入力バリデーションなし</span>
+              </div>
+              <p class="text-xs text-warm-400 font-mono mb-1">CWE-20 / A03:2021 Injection / users.ts:31,62</p>
+              <p class="text-sm text-warm-600">Zodスキーマでemail形式、パスワード強度、名前長を検証。</p>
+            </div>
+            <div class="border border-navy-100 rounded-lg p-4 bg-white">
+              <div class="flex items-center gap-2 mb-1">
+                <span class="text-xs font-mono px-2 py-0.5 rounded severity-medium">Medium / 5.3</span>
+                <span class="font-semibold text-sm text-navy-800">V7: エラーメッセージ情報漏洩</span>
+              </div>
+              <p class="text-xs text-warm-400 font-mono mb-1">CWE-209 / A04:2021 Insecure Design / users.ts:49-54</p>
+              <p class="text-sm text-warm-600">スタックトレースとDB構造がクライアントに漏洩。汎用メッセージに差し替え。ログからもパスワード除外。</p>
+              <div class="annotation-after mt-2 text-xs">人手レビューで見落とし -- catchブロック内の情報漏洩は見過ごしやすい</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 差分ハイライトカード -->
+  <section class="bg-navy-50 border-t border-b border-navy-100">
+    <div class="max-w-7xl mx-auto px-6 py-12">
+      <h2 class="text-2xl font-bold text-navy-800 mb-2">人手レビューが見落とした4件</h2>
+      <p class="text-warm-500 mb-8">目立つ脆弱性（SQLインジェクション等）に注意が集中し、地味だが危険な問題がすり抜けた。</p>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+        <div class="diff-card bg-white rounded-lg border border-navy-100 p-6">
+          <div class="flex items-center gap-3 mb-3">
+            <span class="text-xs font-mono px-2 py-1 rounded severity-critical">Critical / CVSS 9.1</span>
+            <span class="font-bold text-navy-800">V4: パスワード平文保存</span>
+          </div>
+          <div class="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <p class="text-warm-400 text-xs mb-1 font-semibold">脆弱なコード</p>
+              <pre class="bg-warm-50 rounded p-3 text-xs"><code class="language-typescript">// 平文で比較
+if (user.password !== password) {
+  return res.status(401)...
+}
+// 平文のまま保存
+.run(email, password, name)</code></pre>
+            </div>
+            <div>
+              <p class="text-navy-500 text-xs mb-1 font-semibold">修正後</p>
+              <pre class="bg-navy-50 rounded p-3 text-xs"><code class="language-typescript">// bcryptでハッシュ比較
+const isValid = await bcrypt
+  .compare(password, user.password)
+// ハッシュ化して保存
+const hash = await bcrypt
+  .hash(password, 12)
+.run(email, hash, name)</code></pre>
+            </div>
+          </div>
+          <p class="text-warm-500 text-xs mt-3">V3（SQLインジェクション）と連鎖すると、UNION SELECTで全パスワードを平文で窃取可能。</p>
+        </div>
+
+        <div class="diff-card bg-white rounded-lg border border-navy-100 p-6">
+          <div class="flex items-center gap-3 mb-3">
+            <span class="text-xs font-mono px-2 py-1 rounded severity-medium">Medium / CVSS 5.3</span>
+            <span class="font-bold text-navy-800">V7: エラーメッセージ情報漏洩</span>
+          </div>
+          <div class="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <p class="text-warm-400 text-xs mb-1 font-semibold">脆弱なコード</p>
+              <pre class="bg-warm-50 rounded p-3 text-xs"><code class="language-typescript">return res.status(500).json({
+  error: "取得に失敗しました",
+  detail: err.message,
+  stack: err.stack, // DB構造が漏洩
+})
+// ログにパスワード出力
+console.error({ email, password })</code></pre>
+            </div>
+            <div>
+              <p class="text-navy-500 text-xs mb-1 font-semibold">修正後</p>
+              <pre class="bg-navy-50 rounded p-3 text-xs"><code class="language-typescript">// 汎用メッセージのみ返す
+return res.status(500).json({
+  error: "取得に失敗しました"
+})
+// パスワードはログに含めない
+console.error({ email,
+  error: err.message })</code></pre>
+            </div>
+          </div>
+          <p class="text-warm-500 text-xs mt-3">スタックトレースからDB構造、ファイルパス、ライブラリバージョンが攻撃者に渡る。</p>
+        </div>
+
+        <div class="diff-card bg-white rounded-lg border border-navy-100 p-6">
+          <div class="flex items-center gap-3 mb-3">
+            <span class="text-xs font-mono px-2 py-1 rounded severity-medium">Medium / CVSS 6.5</span>
+            <span class="font-bold text-navy-800">V8: CSRF対策なし</span>
+          </div>
+          <div class="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <p class="text-warm-400 text-xs mb-1 font-semibold">脆弱なコード</p>
+              <pre class="bg-warm-50 rounded p-3 text-xs"><code class="language-typescript">// 空実装 -- 何もしていない
+export function csrfProtection(
+  _req, _res, next
+) {
+  // TODO: CSRF対策を実装する
+  next()
+}</code></pre>
+            </div>
+            <div>
+              <p class="text-navy-500 text-xs mb-1 font-semibold">修正後</p>
+              <pre class="bg-navy-50 rounded p-3 text-xs"><code class="language-typescript">// csrf-csrf で実装
+const { doubleCsrfProtection }
+  = doubleCsrf({
+  getSecret: () =>
+    process.env.CSRF_SECRET,
+  cookieName: "__csrf",
+  cookieOptions: { httpOnly: true,
+    sameSite: "strict" },
+})</code></pre>
+            </div>
+          </div>
+          <p class="text-warm-500 text-xs mt-3">関数名が csrfProtection なので「実装済み」と誤認しやすい。中身は空のスタブ。</p>
+        </div>
+
+        <div class="diff-card bg-white rounded-lg border border-navy-100 p-6">
+          <div class="flex items-center gap-3 mb-3">
+            <span class="text-xs font-mono px-2 py-1 rounded severity-high">High / CVSS 7.1</span>
+            <span class="font-bold text-navy-800">V10: DBファイルパーミッション不備</span>
+          </div>
+          <div class="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <p class="text-warm-400 text-xs mb-1 font-semibold">脆弱なコード</p>
+              <pre class="bg-warm-50 rounded p-3 text-xs"><code class="language-typescript">// 全ユーザー読み書き可能
+fs.chmodSync(DB_PATH, 0o666)
+// WAL/SHMファイルも同様に
+// 無防備な状態</code></pre>
+            </div>
+            <div>
+              <p class="text-navy-500 text-xs mb-1 font-semibold">修正後</p>
+              <pre class="bg-navy-50 rounded p-3 text-xs"><code class="language-typescript">// 所有者のみ読み書き可能
+fs.chmodSync(DB_PATH, 0o600)
+// WAL/SHMも制限
+if (fs.existsSync(walPath))
+  fs.chmodSync(walPath, 0o600)</code></pre>
+            </div>
+          </div>
+          <p class="text-warm-500 text-xs mt-3">V4（平文パスワード）と連鎖。同一サーバの別プロセスがsqlite3コマンドでDBを開ける。</p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- 脆弱なソースコード表示 -->
+  <section class="max-w-7xl mx-auto px-6 py-12">
+    <h2 class="text-2xl font-bold text-navy-800 mb-2">脆弱なソースコード</h2>
+    <p class="text-warm-500 mb-6">input/auth-app/ の5ファイル。コメントで脆弱性の位置を示している。</p>
+
+    <!-- タブ -->
+    <div class="flex gap-1 border-b border-warm-200 mb-0">
+      <button class="tab-btn active px-4 py-2.5 text-sm" data-tab="src-server">server.ts</button>
+      <button class="tab-btn px-4 py-2.5 text-sm" data-tab="src-auth">auth.ts</button>
+      <button class="tab-btn px-4 py-2.5 text-sm" data-tab="src-users">users.ts</button>
+      <button class="tab-btn px-4 py-2.5 text-sm" data-tab="src-middleware">middleware.ts</button>
+      <button class="tab-btn px-4 py-2.5 text-sm" data-tab="src-db">db.ts</button>
+    </div>
+
+    <div id="src-server" class="tab-content active code-scroll">
+      <pre class="line-numbers"><code class="language-typescript">// 認証APIサーバのエントリポイント
+// デモ用: 意図的にセキュリティ上の問題を含んでいる
+
+import express from "express"
+import cors from "cors"
+import { loginHandler, registerHandler } from "./auth"
+import { getUserHandler, listUsersHandler } from "./users"
+import { authMiddleware } from "./middleware"
+import { initDb } from "./db"
+
+const app = express()
+const PORT = 3000
+
+// JSON解析
+app.use(express.json())
+
+// [V1] CORSを全ドメインに許可 -- CWE-942
+// 本来はホワイトリスト方式で許可ドメインを制限すべき
+app.use(cors({ origin: "*" }))
+
+// 公開エンドポイント
+// [V2] ログインにレート制限なし -- CWE-307
+// ブルートフォース攻撃への耐性がゼロ
+app.post("/api/login", loginHandler)
+app.post("/api/register", registerHandler)
+
+// 認証が必要なエンドポイント
+app.get("/api/users", authMiddleware, listUsersHandler)
+app.get("/api/users/:id", authMiddleware, getUserHandler)
+
+// ヘルスチェック
+app.get("/api/health", (_req, res) =&gt; {
+  res.json({ status: "ok", timestamp: new Date().toISOString() })
+})
+
+// サーバ起動
+async function startServer() {
+  try {
+    initDb()
+    app.listen(PORT, () =&gt; {
+      console.log(`サーバ起動: http://localhost:${PORT}`)
+    })
+  } catch (error) {
+    console.error("サーバ起動失敗:", error)
+    process.exit(1)
+  }
+}
+
+startServer()
+
+export { app }</code></pre>
+    </div>
+
+    <div id="src-auth" class="tab-content code-scroll">
+      <pre class="line-numbers"><code class="language-typescript">// 認証ロジック: ログインとユーザー登録
+// デモ用: 意図的にセキュリティ上の問題を含んでいる
+
+import { Request, Response } from "express"
+import jwt from "jsonwebtoken"
+import { getDb } from "./db"
+
+// [V5] JWTシークレットをソースコードにハードコード -- CWE-798
+// 本来は環境変数から取得すべき
+const JWT_SECRET = "FAKE_SECRET_KEY_FOR_DEMO"
+
+// トークンの有効期限
+const TOKEN_EXPIRY = "24h"
+
+// ログイン処理
+export async function loginHandler(req: Request, res: Response) {
+  const { email, password } = req.body
+
+  if (!email || !password) {
+    return res.status(400).json({ error: "メールアドレスとパスワードは必須です" })
+  }
+
+  try {
+    const db = getDb()
+
+    // [V3] SQLインジェクション -- CWE-89
+    // 文字列結合でクエリを組み立てているため、任意のSQLを注入できる
+    const query = `SELECT * FROM users WHERE email = '${email}'`
+    const user = db.prepare(query).get() as
+      | { id: number; email: string; password: string; name: string }
+      | undefined
+
+    if (!user) {
+      return res.status(401).json({ error: "認証に失敗しました" })
+    }
+
+    // [V4] パスワードを平文で比較 -- CWE-256
+    // bcrypt等でハッシュ化して保存・比較すべき
+    if (user.password !== password) {
+      return res.status(401).json({ error: "認証に失敗しました" })
+    }
+
+    // JWTトークン発行
+    const token = jwt.sign(
+      { userId: user.id, email: user.email },
+      JWT_SECRET,
+      { expiresIn: TOKEN_EXPIRY }
+    )
+
+    return res.json({
+      token,
+      user: { id: user.id, email: user.email, name: user.name },
+    })
+  } catch (error) {
+    console.error("ログインエラー:", error)
+    return res.status(500).json({ error: "内部エラーが発生しました" })
+  }
+}
+
+// ユーザー登録処理
+export async function registerHandler(req: Request, res: Response) {
+  const { email, password, name } = req.body
+
+  if (!email || !password || !name) {
+    return res.status(400).json({ error: "全項目の入力が必要です" })
+  }
+
+  try {
+    const db = getDb()
+
+    // 既存ユーザーチェック（V3と同根のSQLインジェクション）
+    const existing = db
+      .prepare(`SELECT id FROM users WHERE email = '${email}'`)
+      .get()
+
+    if (existing) {
+      return res.status(409).json({ error: "このメールアドレスは既に登録されています" })
+    }
+
+    // [V4と同根] パスワードを平文のまま保存
+    const result = db
+      .prepare("INSERT INTO users (email, password, name) VALUES (?, ?, ?)")
+      .run(email, password, name)
+
+    const token = jwt.sign(
+      { userId: result.lastInsertRowid, email },
+      JWT_SECRET,
+      { expiresIn: TOKEN_EXPIRY }
+    )
+
+    return res.status(201).json({
+      token,
+      user: { id: result.lastInsertRowid, email, name },
+    })
+  } catch (error) {
+    console.error("登録エラー:", error)
+    return res.status(500).json({ error: "内部エラーが発生しました" })
+  }
+}
+
+// JWTトークン検証（ミドルウェアから呼ばれる）
+export function verifyToken(token: string) {
+  return jwt.verify(token, JWT_SECRET) as { userId: number; email: string }
+}</code></pre>
+    </div>
+
+    <div id="src-users" class="tab-content code-scroll">
+      <pre class="line-numbers"><code class="language-typescript">// ユーザー管理エンドポイント
+// デモ用: 意図的にセキュリティ上の問題を含んでいる
+
+import { Request, Response } from "express"
+import { getDb } from "./db"
+
+// ユーザー情報の型
+interface User {
+  id: number
+  email: string
+  password: string
+  name: string
+  created_at: string
+}
+
+// 全ユーザー一覧取得
+export async function listUsersHandler(_req: Request, res: Response) {
+  try {
+    const db = getDb()
+    const users = db.prepare("SELECT id, email, name, created_at FROM users").all()
+    return res.json({ users })
+  } catch (error) {
+    return res.status(500).json({ error: "ユーザー一覧の取得に失敗しました" })
+  }
+}
+
+// 個別ユーザー取得
+export async function getUserHandler(req: Request, res: Response) {
+  try {
+    const db = getDb()
+    const userId = req.params.id
+
+    // [V6] 入力バリデーションなし -- CWE-20
+    const user = db
+      .prepare("SELECT id, email, name, created_at FROM users WHERE id = ?")
+      .get(userId) as User | undefined
+
+    if (!user) {
+      return res.status(404).json({ error: "ユーザーが見つかりません" })
+    }
+
+    return res.json({ user })
+  } catch (error) {
+    // [V7] エラーメッセージに機密情報を含む -- CWE-209
+    const err = error as Error
+    return res.status(500).json({
+      error: "ユーザー取得に失敗しました",
+      detail: err.message,
+      stack: err.stack,
+    })
+  }
+}
+
+// ユーザー作成（管理者用）
+export async function createUserHandler(req: Request, res: Response) {
+  // [V6と同根] リクエストボディのバリデーションなし
+  const { email, password, name } = req.body
+
+  try {
+    const db = getDb()
+
+    const result = db
+      .prepare("INSERT INTO users (email, password, name) VALUES (?, ?, ?)")
+      .run(email, password, name)
+
+    return res.status(201).json({
+      user: { id: result.lastInsertRowid, email, name },
+    })
+  } catch (error) {
+    // [V7と同根] デバッグ情報をレスポンスに含める
+    const err = error as Error
+    console.error("ユーザー作成失敗:", {
+      email,
+      password, // パスワードをログに出力してしまっている
+      error: err.message,
+    })
+    return res.status(500).json({
+      error: "ユーザー作成に失敗しました",
+      detail: err.message,
+    })
+  }
+}</code></pre>
+    </div>
+
+    <div id="src-middleware" class="tab-content code-scroll">
+      <pre class="line-numbers"><code class="language-typescript">// 認証・セキュリティ系ミドルウェア
+// デモ用: 意図的にセキュリティ上の問題を含んでいる
+
+import { Request, Response, NextFunction } from "express"
+import { verifyToken } from "./auth"
+
+// 認証済みリクエストの型拡張
+interface AuthenticatedRequest extends Request {
+  user?: { userId: number; email: string }
+}
+
+// JWT認証ミドルウェア
+export function authMiddleware(
+  req: AuthenticatedRequest,
+  res: Response,
+  next: NextFunction
+) {
+  const authHeader = req.headers.authorization
+
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ error: "認証トークンが必要です" })
+  }
+
+  const token = authHeader.split(" ")[1]
+
+  try {
+    const decoded = verifyToken(token)
+    req.user = decoded
+    next()
+  } catch (error) {
+    return res.status(401).json({ error: "無効なトークンです" })
+  }
+}
+
+// [V8] CSRF対策が未実装 -- CWE-352
+// 以下はCSRF対策のスタブ。実装されていない
+export function csrfProtection(
+  _req: Request,
+  _res: Response,
+  next: NextFunction
+) {
+  // TODO: CSRF対策を実装する
+  // 現状は何もせず次のミドルウェアに渡している
+  next()
+}
+
+// [V9] セキュリティヘッダが未設定 -- CWE-319
+export function securityHeaders(
+  _req: Request,
+  _res: Response,
+  next: NextFunction
+) {
+  // TODO: セキュリティヘッダを設定する
+  // TODO: HTTPSリダイレクトを実装する
+  // 現状は何も設定せず通過している
+  next()
+}
+
+// リクエストログ
+export function requestLogger(
+  req: Request,
+  _res: Response,
+  next: NextFunction
+) {
+  const timestamp = new Date().toISOString()
+  console.log(`[${timestamp}] ${req.method} ${req.path}`)
+  next()
+}</code></pre>
+    </div>
+
+    <div id="src-db" class="tab-content code-scroll">
+      <pre class="line-numbers"><code class="language-typescript">// SQLiteデータベース初期化
+// デモ用: 意図的にセキュリティ上の問題を含んでいる
+
+import Database from "better-sqlite3"
+import fs from "fs"
+import path from "path"
+
+const DB_PATH = path.join(__dirname, "app.db")
+
+let db: Database.Database | null = null
+
+// データベース初期化
+export function initDb(): void {
+  db = new Database(DB_PATH)
+
+  // WALモード有効化（パフォーマンス向上）
+  db.pragma("journal_mode = WAL")
+
+  // テーブル作成
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      email TEXT UNIQUE NOT NULL,
+      password TEXT NOT NULL,
+      name TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `)
+
+  // [V10] データベースファイルのパーミッションが全ユーザー読み書き可能 -- CWE-732
+  // 本来は所有者のみ読み書き可能（0o600）にすべき
+  fs.chmodSync(DB_PATH, 0o666)
+
+  // デモ用初期データ挿入
+  const userCount = db.prepare("SELECT COUNT(*) as count FROM users").get() as {
+    count: number
+  }
+
+  if (userCount.count === 0) {
+    const insertUser = db.prepare(
+      "INSERT INTO users (email, password, name) VALUES (?, ?, ?)"
+    )
+
+    // デモ用ダミーデータ（本物のパスワードではない）
+    insertUser.run("admin@example.com", "admin123-DEMO-ONLY", "管理者")
+    insertUser.run("user@example.com", "password-DEMO-ONLY", "一般ユーザー")
+    insertUser.run("test@example.com", "test1234-DEMO-ONLY", "テストユーザー")
+  }
+
+  console.log("データベース初期化完了")
+}
+
+// データベースインスタンス取得
+export function getDb(): Database.Database {
+  if (!db) {
+    throw new Error("データベースが初期化されていません。initDb()を先に呼んでください。")
+  }
+  return db
+}
+
+// データベースクローズ
+export function closeDb(): void {
+  if (db) {
+    db.close()
+    db = null
+  }
+}</code></pre>
+    </div>
+  </section>
+
+  <!-- プロンプト表示 -->
+  <section class="bg-navy-50 border-t border-b border-navy-100">
+    <div class="max-w-7xl mx-auto px-6 py-12">
+      <h2 class="text-2xl font-bold text-navy-800 mb-2">デモ手順 -- このプロンプトをClaude Codeに投入</h2>
+      <p class="text-warm-500 mb-6">以下をコピーしてClaude Codeに貼り付けると、全10件の脆弱性を検出し、修正コード付きの監査レポートを生成する。</p>
+
+      <div class="prompt-block bg-white rounded-lg border border-navy-200 overflow-hidden">
+        <div class="flex items-center justify-between bg-navy-800 px-5 py-3">
+          <span class="text-navy-200 text-sm font-mono">with-ai/prompt.md</span>
+          <button onclick="copyPrompt()" class="copy-btn text-xs px-3 py-1.5 rounded border border-navy-400 text-navy-200 font-mono">
+            コピー
+          </button>
+        </div>
+        <div class="p-5">
+          <pre class="text-sm leading-relaxed text-warm-700 whitespace-pre-wrap" id="prompt-text" style="font-family: 'SF Mono', 'Fira Code', Menlo, Consolas, monospace; font-size: 13px;">input/auth-app/ にある5つのTypeScriptファイル（server.ts, auth.ts, users.ts, middleware.ts, db.ts）を全量読み込んでください。これらはExpress + better-sqlite3 で構成された認証APIサーバです。
+
+このコードベースに対してセキュリティ監査を実施し、以下の2つの成果物を生成してください。
+
+
+成果物1: 監査レポート（audit-report.md）
+
+脆弱性ごとに以下を記載すること。
+
+- 対象ファイルと該当行番号
+- CWE番号と正式名称
+- OWASP Top 10 2021 の対応カテゴリ
+- CVSS v3.1 スコアとベクタ文字列（例: AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N）
+- 重大度（Critical / High / Medium / Low）
+- 脆弱性の技術的な説明
+- 具体的な攻撃シナリオ（この脆弱性を突くと何が起きるか、どう悪用されるか）
+- 修正コードスニペット
+
+レポートの末尾には以下を含めること。
+
+- 重大度別の集計表（件数、対象、CVSSスコア範囲）
+- 複数の脆弱性が連鎖した場合のリスク分析（どの脆弱性の組み合わせが被害を拡大させるか）
+- 修正に必要な追加npmパッケージの一覧
+- 総合評価（優先対応順位の根拠を含む）
+
+
+成果物2: 修正済みコード（fixed/ ディレクトリ）
+
+全5ファイルの修正版を出力すること。条件は以下の通り。
+
+- 検出したすべての脆弱性を修正する
+- 修正箇所にはコメントで [修正: VX] の形式で何を直したか記載する
+- 追加パッケージが必要な場合はimport文を含める
+- 型安全性を維持する（any を使わない、適切な型アノテーション）
+- 既存の動作を壊さない（APIのエンドポイントやレスポンス形式は変えない）
+
+
+注意事項:
+
+- コード中のAPIキーやパスワードはデモ用のダミー値です。本物の機密情報ではありません
+- SQLインジェクションやXSSのような既知パターンだけでなく、設定ミス、パーミッション不備、暗号化の欠如、情報漏洩も対象としてください
+- 空実装のミドルウェア（TODO コメントだけで何も処理していない関数）に注意してください
+- 見つけた脆弱性はすべて報告してください。過不足なく</pre>
+        </div>
+      </div>
+
+      <div class="mt-6 grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div class="bg-white rounded-lg border border-navy-100 p-4 text-center">
+          <p class="text-xs text-warm-400 mb-1">Step 1</p>
+          <p class="text-sm font-semibold text-navy-800">コードを確認</p>
+          <p class="text-xs text-warm-500 mt-1">input/ の5ファイルを開く</p>
+        </div>
+        <div class="bg-white rounded-lg border border-navy-100 p-4 text-center">
+          <p class="text-xs text-warm-400 mb-1">Step 2</p>
+          <p class="text-sm font-semibold text-navy-800">手動レポートを見る</p>
+          <p class="text-xs text-warm-500 mt-1">before/ の6件検出を確認</p>
+        </div>
+        <div class="bg-white rounded-lg border border-navy-100 p-4 text-center">
+          <p class="text-xs text-warm-400 mb-1">Step 3</p>
+          <p class="text-sm font-semibold text-navy-800">見落としを考える</p>
+          <p class="text-xs text-warm-500 mt-1">残り4件はどこにある?</p>
+        </div>
+        <div class="bg-white rounded-lg border border-navy-100 p-4 text-center">
+          <p class="text-xs text-warm-400 mb-1">Step 4</p>
+          <p class="text-sm font-semibold text-navy-800">プロンプトを投入</p>
+          <p class="text-xs text-warm-500 mt-1">Claude Codeで監査実行</p>
+        </div>
+        <div class="bg-white rounded-lg border border-navy-100 p-4 text-center">
+          <p class="text-xs text-warm-400 mb-1">Step 5</p>
+          <p class="text-sm font-semibold text-navy-800">結果を比較</p>
+          <p class="text-xs text-warm-500 mt-1">10件全件検出を確認</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 脆弱性連鎖図 -->
+  <section class="max-w-7xl mx-auto px-6 py-12">
+    <h2 class="text-2xl font-bold text-navy-800 mb-2">脆弱性の連鎖 -- 単体より組み合わせが危険</h2>
+    <p class="text-warm-500 mb-8">個別にはMediumやHighでも、連鎖で被害規模が跳ね上がるパターンが3つある。</p>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div class="border border-navy-200 rounded-lg overflow-hidden">
+        <div class="bg-navy-800 px-5 py-3">
+          <p class="text-white font-semibold text-sm">連鎖パターン 1</p>
+        </div>
+        <div class="p-5">
+          <div class="flex items-center gap-2 mb-3">
+            <span class="text-xs font-mono px-2 py-0.5 rounded severity-critical">V3</span>
+            <span class="text-warm-400">+</span>
+            <span class="text-xs font-mono px-2 py-0.5 rounded severity-critical">V4</span>
+          </div>
+          <p class="text-sm font-semibold text-navy-800 mb-2">SQLインジェクション + 平文パスワード</p>
+          <p class="text-sm text-warm-600">UNION SELECTで取得したパスワードが平文。クラック不要で即時悪用可能。ハッシュ化されていればクラック時間が稼げるが、平文ではその猶予がない。</p>
+        </div>
+      </div>
+
+      <div class="border border-navy-200 rounded-lg overflow-hidden">
+        <div class="bg-navy-800 px-5 py-3">
+          <p class="text-white font-semibold text-sm">連鎖パターン 2</p>
+        </div>
+        <div class="p-5">
+          <div class="flex items-center gap-2 mb-3">
+            <span class="text-xs font-mono px-2 py-0.5 rounded severity-high">V10</span>
+            <span class="text-warm-400">+</span>
+            <span class="text-xs font-mono px-2 py-0.5 rounded severity-critical">V4</span>
+          </div>
+          <p class="text-sm font-semibold text-navy-800 mb-2">ファイルパーミッション不備 + 平文パスワード</p>
+          <p class="text-sm text-warm-600">ネットワーク経由の攻撃すら不要。同一マシンの別プロセスがsqlite3でDBを開き、SELECT一発で全認証情報を取得できる。</p>
+        </div>
+      </div>
+
+      <div class="border border-navy-200 rounded-lg overflow-hidden">
+        <div class="bg-navy-800 px-5 py-3">
+          <p class="text-white font-semibold text-sm">連鎖パターン 3</p>
+        </div>
+        <div class="p-5">
+          <div class="flex items-center gap-2 mb-3">
+            <span class="text-xs font-mono px-2 py-0.5 rounded severity-critical">V5</span>
+            <span class="text-warm-400">+</span>
+            <span class="text-xs font-mono px-2 py-0.5 rounded severity-high">V1</span>
+          </div>
+          <p class="text-sm font-semibold text-navy-800 mb-2">JWTシークレット既知 + CORS全開放</p>
+          <p class="text-sm text-warm-600">攻撃者がシークレットを知っていれば任意のトークンを発行でき、CORSが全開放なので任意のオリジンからAPIを呼べる。認証の仕組み全体が無力化する。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- フッター -->
+  <footer class="bg-navy-800 text-navy-300">
+    <div class="max-w-7xl mx-auto px-6 py-8 flex items-center justify-between">
+      <p class="text-sm">08_security-audit -- セキュリティ診断デモ</p>
+      <a href="../showcase/index.html" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg border border-navy-500 text-white text-sm hover:bg-navy-700 transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        showcase に戻る
+      </a>
+    </div>
+  </footer>
+
+  <!-- Prism.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-typescript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.js"></script>
+
+  <script>
+    // タブ切り替え
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const tabId = btn.dataset.tab
+        const parent = btn.closest('section')
+
+        parent.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'))
+        parent.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'))
+
+        btn.classList.add('active')
+        const target = document.getElementById(tabId)
+        if (target) {
+          target.classList.add('active')
+          target.classList.add('fade-in')
+          Prism.highlightAllUnder(target)
+        }
+      })
+    })
+
+    // プロンプトコピー
+    function copyPrompt() {
+      const text = document.getElementById('prompt-text').textContent
+      navigator.clipboard.writeText(text).then(() => {
+        const btn = document.querySelector('.copy-btn')
+        const original = btn.textContent
+        btn.textContent = 'コピー完了'
+        btn.style.background = '#1e3a5f'
+        btn.style.color = '#fff'
+        setTimeout(() => {
+          btn.textContent = original
+          btn.style.background = ''
+          btn.style.color = ''
+        }, 2000)
+      })
+    }
+
+    // 初期ハイライト
+    Prism.highlightAll()
+  </script>
+</body>
+</html>

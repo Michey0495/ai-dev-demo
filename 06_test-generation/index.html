@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>06 テスト生成 - AI駆動開発デモ</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-typescript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-markdown.min.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            navy: {
+              50: '#eef2f7',
+              100: '#d4dde8',
+              200: '#a9bbcf',
+              300: '#7e99b7',
+              400: '#53779e',
+              500: '#2d5a85',
+              600: '#1e3a5f',
+              700: '#162d4a',
+              800: '#0f2035',
+              900: '#081320',
+            },
+            warm: {
+              50: '#f9fafb',
+              100: '#f3f4f6',
+              200: '#e5e7eb',
+              300: '#d1d5db',
+              400: '#9ca3af',
+              500: '#6b7280',
+              600: '#4b5563',
+              700: '#374151',
+              800: '#1f2937',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: 'Helvetica Neue', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif; }
+    pre[class*="language-"] {
+      margin: 0;
+      border-radius: 0.5rem;
+      font-size: 0.8rem;
+      line-height: 1.5;
+    }
+    code[class*="language-"] {
+      font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+      font-size: 0.8rem;
+    }
+    .code-scroll {
+      max-height: 520px;
+      overflow-y: auto;
+    }
+    .code-scroll::-webkit-scrollbar { width: 6px; }
+    .code-scroll::-webkit-scrollbar-track { background: #1d1f21; border-radius: 3px; }
+    .code-scroll::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 3px; }
+    .annotation {
+      position: relative;
+      padding-left: 1rem;
+      border-left: 3px solid;
+    }
+    .annotation-problem { border-color: #dc2626; }
+    .annotation-improve { border-color: #1e3a5f; }
+    .fade-in {
+      opacity: 0;
+      transform: translateY(20px);
+      transition: opacity 0.5s ease, transform 0.5s ease;
+    }
+    .fade-in.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .stat-number {
+      font-variant-numeric: tabular-nums;
+    }
+    .copy-btn:active { transform: scale(0.95); }
+  </style>
+</head>
+<body class="bg-white text-warm-800 antialiased">
+
+  <!-- ヘッダー -->
+  <header class="bg-navy-600 text-white">
+    <div class="max-w-7xl mx-auto px-6 py-5 flex items-center justify-between">
+      <div>
+        <p class="text-navy-200 text-sm tracking-wider mb-1">06_test-generation</p>
+        <h1 class="text-2xl font-bold tracking-tight">テスト生成 -- コードからテスト自動生成</h1>
+      </div>
+      <a href="../showcase/index.html" class="text-sm text-navy-200 hover:text-white transition border border-navy-400 rounded px-4 py-2 hover:border-white">
+        ← Showcaseに戻る
+      </a>
+    </div>
+  </header>
+
+  <!-- サマリーバー -->
+  <section class="bg-navy-50 border-b border-navy-100">
+    <div class="max-w-7xl mx-auto px-6 py-6">
+      <p class="text-warm-600 text-sm leading-relaxed max-w-3xl">
+        日付計算ユーティリティ（10関数・236行）を題材に、人間が書いた最小限テストとAI生成の包括的テストを比較する。
+        テスト件数は5件から80件へ。境界値、うるう年、祝日、振替休日、不正入力まで網羅される過程を確認できる。
+      </p>
+    </div>
+  </section>
+
+  <!-- 数値インパクト -->
+  <section class="max-w-7xl mx-auto px-6 py-10">
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+      <div class="text-center fade-in">
+        <p class="stat-number text-4xl font-bold text-navy-600">10</p>
+        <p class="text-warm-500 text-sm mt-1">対象関数</p>
+      </div>
+      <div class="text-center fade-in">
+        <p class="stat-number text-4xl font-bold text-red-500">5</p>
+        <p class="text-warm-500 text-sm mt-1">Before テスト件数</p>
+      </div>
+      <div class="text-center fade-in">
+        <p class="stat-number text-4xl font-bold text-navy-600">80</p>
+        <p class="text-warm-500 text-sm mt-1">After テスト件数</p>
+      </div>
+      <div class="text-center fade-in">
+        <p class="stat-number text-4xl font-bold text-navy-600">16x</p>
+        <p class="text-warm-500 text-sm mt-1">テスト密度向上</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- テスト対象コード -->
+  <section class="max-w-7xl mx-auto px-6 pb-10 fade-in">
+    <div class="border border-warm-200 rounded-lg overflow-hidden">
+      <div class="bg-warm-50 px-5 py-3 border-b border-warm-200 flex items-center justify-between">
+        <div>
+          <span class="text-navy-600 font-semibold text-sm">input/date-utils.ts</span>
+          <span class="text-warm-400 text-xs ml-3">テスト対象 -- 10関数・236行</span>
+        </div>
+        <button onclick="toggleSection('source-code')" class="text-warm-400 hover:text-navy-600 text-xs transition">
+          表示/非表示
+        </button>
+      </div>
+      <div id="source-code" class="code-scroll hidden">
+        <pre><code class="language-typescript">// date-utils.ts
+// 日付計算ユーティリティ - 営業日計算・和暦年度対応
+
+// 日本の祝日（簡易版: 固定祝日のみ）
+const JAPANESE_HOLIDAYS: Record&lt;string, string&gt; = {
+  '01-01': '元日',
+  '01-08': '成人の日',
+  '02-11': '建国記念の日',
+  '02-23': '天皇誕生日',
+  '03-20': '春分の日',
+  '04-29': '昭和の日',
+  '05-03': '憲法記念日',
+  '05-04': 'みどりの日',
+  '05-05': 'こどもの日',
+  '07-15': '海の日',
+  '08-11': '山の日',
+  '09-16': '敬老の日',
+  '09-22': '秋分の日',
+  '10-14': 'スポーツの日',
+  '11-03': '文化の日',
+  '11-23': '勤労感謝の日',
+}
+
+type DateFormat = 'yyyy-MM-dd' | 'yyyy/MM/dd' | 'MM/dd' | 'yyyy年MM月dd日'
+
+export function formatDate(date: Date, format: DateFormat = 'yyyy-MM-dd'): string { ... }
+export function parseDate(str: string): Date { ... }
+export function addBusinessDays(date: Date, days: number): Date { ... }
+export function isHoliday(date: Date): boolean { ... }
+export function getNextBusinessDay(date: Date): Date { ... }
+export function diffInBusinessDays(start: Date, end: Date): number { ... }
+export function getQuarter(date: Date): number { ... }
+export function getFiscalYear(date: Date): number { ... }
+export function isLeapYear(year: number): boolean { ... }
+export function getLastDayOfMonth(year: number, month: number): number { ... }</code></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- Before / After 比較 -->
+  <section class="max-w-7xl mx-auto px-6 pb-12">
+    <h2 class="text-xl font-bold text-navy-600 mb-6">Before / After 比較</h2>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+      <!-- Before -->
+      <div class="fade-in">
+        <div class="border border-warm-200 rounded-lg overflow-hidden">
+          <div class="bg-red-50 px-5 py-3 border-b border-red-100 flex items-center gap-3">
+            <span class="bg-red-500 text-white text-xs font-bold px-2.5 py-1 rounded">BEFORE</span>
+            <span class="text-warm-600 text-sm">before/date-utils.test.ts</span>
+            <span class="ml-auto text-red-500 text-xs font-semibold">5件</span>
+          </div>
+          <div class="code-scroll">
+            <pre><code class="language-typescript">import { describe, it, expect } from 'vitest'
+import {
+  formatDate,
+  parseDate,
+  addBusinessDays,
+  getQuarter,
+  isLeapYear,
+} from '../input/date-utils'
+
+// 正常系テストのみ。5関数 x 1ケース = 合計5件
+// isHoliday, getNextBusinessDay, diffInBusinessDays,
+// getFiscalYear, getLastDayOfMonth は未テスト
+
+describe('date-utils', () =&gt; {
+  it('formatDate で日付をフォーマットできる', () =&gt; {
+    const date = new Date(2025, 5, 15)
+    expect(formatDate(date)).toBe('2025-06-15')
+  })
+
+  it('parseDate で文字列から日付を生成できる', () =&gt; {
+    const result = parseDate('2025-06-15')
+    expect(result.getFullYear()).toBe(2025)
+    expect(result.getMonth()).toBe(5)
+    expect(result.getDate()).toBe(15)
+  })
+
+  it('addBusinessDays で営業日を加算できる', () =&gt; {
+    const monday = new Date(2025, 5, 2)
+    const result = addBusinessDays(monday, 3)
+    expect(result.getDate()).toBe(5)
+  })
+
+  it('getQuarter で四半期を取得できる', () =&gt; {
+    const jan = new Date(2025, 0, 15)
+    expect(getQuarter(jan)).toBe(1)
+  })
+
+  it('isLeapYear でうるう年を判定できる', () =&gt; {
+    expect(isLeapYear(2024)).toBe(true)
+  })
+})</code></pre>
+          </div>
+        </div>
+
+        <!-- Before 問題点 -->
+        <div class="mt-4 space-y-3">
+          <div class="annotation annotation-problem bg-red-50 rounded-r-lg p-3">
+            <p class="text-sm text-red-700 font-medium">10関数中5関数が未テスト</p>
+            <p class="text-xs text-red-500 mt-0.5">isHoliday, getNextBusinessDay, diffInBusinessDays, getFiscalYear, getLastDayOfMonth</p>
+          </div>
+          <div class="annotation annotation-problem bg-red-50 rounded-r-lg p-3">
+            <p class="text-sm text-red-700 font-medium">境界値テストがゼロ</p>
+            <p class="text-xs text-red-500 mt-0.5">うるう年2/29、月末、年度切り替わり、四半期境界の検証なし</p>
+          </div>
+          <div class="annotation annotation-problem bg-red-50 rounded-r-lg p-3">
+            <p class="text-sm text-red-700 font-medium">異常系テストがゼロ</p>
+            <p class="text-xs text-red-500 mt-0.5">null, undefined, 不正な型, 範囲外の値 -- 全て未検証</p>
+          </div>
+          <div class="annotation annotation-problem bg-red-50 rounded-r-lg p-3">
+            <p class="text-sm text-red-700 font-medium">営業日計算の核心が未検証</p>
+            <p class="text-xs text-red-500 mt-0.5">祝日スキップ、振替休日、週末跨ぎ、負の営業日数</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- After -->
+      <div class="fade-in">
+        <div class="border border-warm-200 rounded-lg overflow-hidden">
+          <div class="bg-navy-50 px-5 py-3 border-b border-navy-100 flex items-center gap-3">
+            <span class="bg-navy-600 text-white text-xs font-bold px-2.5 py-1 rounded">AFTER</span>
+            <span class="text-warm-600 text-sm">expected-output/date-utils.test.ts</span>
+            <span class="ml-auto text-navy-600 text-xs font-semibold">80件</span>
+          </div>
+          <div class="code-scroll">
+            <pre><code class="language-typescript">import { describe, it, expect } from 'vitest'
+import {
+  formatDate, parseDate, addBusinessDays,
+  isHoliday, getNextBusinessDay, diffInBusinessDays,
+  getQuarter, getFiscalYear, isLeapYear, getLastDayOfMonth,
+} from '../input/date-utils'
+
+// ---- formatDate (9件) ----
+describe('formatDate', () =&gt; {
+  it('デフォルトフォーマット yyyy-MM-dd で出力される', ...)
+  it('yyyy/MM/dd フォーマットで出力される', ...)
+  it('MM/dd フォーマットで出力される', ...)
+  it('yyyy年MM月dd日 フォーマットで出力される', ...)
+  it('月・日が1桁のときゼロ埋めされる', ...)
+  it('年末年始の境界を正しくフォーマットする', ...)
+  it('うるう年の 2月29日 をフォーマットできる', ...)
+  it('無効な Date を渡すとエラーになる', ...)
+  it('Date 以外の値を渡すとエラーになる', ...)
+})
+
+// ---- parseDate (11件) ----
+describe('parseDate', () =&gt; {
+  it('yyyy-MM-dd 形式をパースできる', ...)
+  it('yyyy/MM/dd 形式をパースできる', ...)
+  it('うるう年の 2月29日 をパースできる', ...)
+  it('平年の 2月29日 はエラーになる', ...)
+  it('400年周期のうるう年と100年周期の平年を区別する', ...)
+  it('月が範囲外の場合エラーになる', ...)
+  it('日が0または月末超過の場合エラーになる', ...)
+  it('各月末の最終日をパースできる', ...)
+  it('空文字を渡すとエラーになる', ...)
+  it('不正な形式の文字列はエラーになる', ...)
+  it('null / undefined / 数値を渡すとエラーになる', ...)
+})
+
+// ---- addBusinessDays (9件) ----
+describe('addBusinessDays', () =&gt; {
+  it('月曜から3営業日後は木曜になる', ...)
+  it('金曜から1営業日後は翌週月曜になる', ...)
+  it('金曜から5営業日後は翌週金曜になる', ...)
+  it('0営業日を指定すると同じ日が返る', ...)
+  it('負の営業日数で過去方向に遡る', ...)
+  it('GW直前から1営業日後は祝日をスキップ', ...)
+  it('建国記念の日をスキップして営業日を計算', ...)
+  it('元の日付オブジェクトを変更しない', ...)
+  it('無効な日付や小数の営業日数はエラー', ...)
+})
+
+// ---- isHoliday (8件) ----
+// ---- getNextBusinessDay (5件) ----
+// ---- diffInBusinessDays (7件) ----
+// ---- getQuarter (7件) ----
+// ---- getFiscalYear (7件) ----
+// ---- isLeapYear (7件) ----
+// ---- getLastDayOfMonth (6件) ----
+// ---- 関数間の整合性 (4件) ----</code></pre>
+          </div>
+        </div>
+
+        <!-- After 改善点 -->
+        <div class="mt-4 space-y-3">
+          <div class="annotation annotation-improve bg-navy-50 rounded-r-lg p-3">
+            <p class="text-sm text-navy-700 font-medium">全10関数をカバー + 関数間整合性テスト</p>
+            <p class="text-xs text-navy-400 mt-0.5">formatDate→parseDateのラウンドトリップ、addBusinessDays⇔diffInBusinessDaysの逆算</p>
+          </div>
+          <div class="annotation annotation-improve bg-navy-50 rounded-r-lg p-3">
+            <p class="text-sm text-navy-700 font-medium">うるう年を4パターン網羅</p>
+            <p class="text-xs text-navy-400 mt-0.5">4年周期(2024), 100年周期(1900), 400年周期(2000), 平年(2025)</p>
+          </div>
+          <div class="annotation annotation-improve bg-navy-50 rounded-r-lg p-3">
+            <p class="text-sm text-navy-700 font-medium">日本固有ロジックを網羅</p>
+            <p class="text-xs text-navy-400 mt-0.5">16祝日の判定、振替休日(11/24)、会計年度3月/4月境界、GW連休チェーン</p>
+          </div>
+          <div class="annotation annotation-improve bg-navy-50 rounded-r-lg p-3">
+            <p class="text-sm text-navy-700 font-medium">異常系で防御的コードを検証</p>
+            <p class="text-xs text-navy-400 mt-0.5">null/undefined/不正型, 範囲外月(0,13), 存在しない日(4/31), 小数値, NaN</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 差分ハイライト カード -->
+  <section class="bg-warm-50 border-y border-warm-200">
+    <div class="max-w-7xl mx-auto px-6 py-12">
+      <h2 class="text-xl font-bold text-navy-600 mb-8">AIが埋めた主要ギャップ</h2>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+
+        <div class="bg-white border border-warm-200 rounded-lg p-5 fade-in">
+          <div class="flex items-center gap-2 mb-3">
+            <span class="w-8 h-8 bg-navy-600 text-white rounded flex items-center justify-center text-sm font-bold">1</span>
+            <h3 class="font-semibold text-navy-700 text-sm">関数カバレッジ 50% → 100%</h3>
+          </div>
+          <p class="text-warm-500 text-xs leading-relaxed">
+            Beforeではテスト対象10関数中5関数が放置されていた。
+            isHoliday（振替休日判定）やdiffInBusinessDays（営業日差分）など、バグが潜みやすい関数ほど漏れていた。
+          </p>
+        </div>
+
+        <div class="bg-white border border-warm-200 rounded-lg p-5 fade-in">
+          <div class="flex items-center gap-2 mb-3">
+            <span class="w-8 h-8 bg-navy-600 text-white rounded flex items-center justify-center text-sm font-bold">2</span>
+            <h3 class="font-semibold text-navy-700 text-sm">うるう年の4分岐を完全カバー</h3>
+          </div>
+          <p class="text-warm-500 text-xs leading-relaxed">
+            Beforeは「2024年はうるう年」の1件だけ。
+            Afterでは100年周期(1900)と400年周期(2000)の例外パターンまで検証し、parseDateとgetLastDayOfMonthの両方で2月29日を確認する。
+          </p>
+        </div>
+
+        <div class="bg-white border border-warm-200 rounded-lg p-5 fade-in">
+          <div class="flex items-center gap-2 mb-3">
+            <span class="w-8 h-8 bg-navy-600 text-white rounded flex items-center justify-center text-sm font-bold">3</span>
+            <h3 class="font-semibold text-navy-700 text-sm">祝日チェーンと振替休日</h3>
+          </div>
+          <p class="text-warm-500 text-xs leading-relaxed">
+            GWの4連休（昭和の日→憲法記念日→みどりの日→こどもの日）を個別検証。
+            2025年11月23日（勤労感謝の日）が日曜に当たるケースで振替休日の判定ロジックも通す。
+          </p>
+        </div>
+
+        <div class="bg-white border border-warm-200 rounded-lg p-5 fade-in">
+          <div class="flex items-center gap-2 mb-3">
+            <span class="w-8 h-8 bg-navy-600 text-white rounded flex items-center justify-center text-sm font-bold">4</span>
+            <h3 class="font-semibold text-navy-700 text-sm">会計年度の3月/4月境界</h3>
+          </div>
+          <p class="text-warm-500 text-xs leading-relaxed">
+            日本企業のシステムで致命的になりがちな年度切り替わり。
+            3月31日は前年度、4月1日は当年度。年末年始をまたいでも同一年度であることを明示的に検証する。
+          </p>
+        </div>
+
+        <div class="bg-white border border-warm-200 rounded-lg p-5 fade-in">
+          <div class="flex items-center gap-2 mb-3">
+            <span class="w-8 h-8 bg-navy-600 text-white rounded flex items-center justify-center text-sm font-bold">5</span>
+            <h3 class="font-semibold text-navy-700 text-sm">関数間の整合性テスト</h3>
+          </div>
+          <p class="text-warm-500 text-xs leading-relaxed">
+            formatDate→parseDateのラウンドトリップが崩れないか。
+            addBusinessDaysで10営業日進めた結果をdiffInBusinessDaysで逆算して10が返るか。単体テストだけでは見つからない不整合を検出する。
+          </p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- プロンプトセクション -->
+  <section class="max-w-7xl mx-auto px-6 py-12">
+    <h2 class="text-xl font-bold text-navy-600 mb-2">使用プロンプト</h2>
+    <p class="text-warm-500 text-sm mb-6">以下をClaude Codeに投入すると、80件のテストスイートが生成される。</p>
+
+    <div class="border border-warm-200 rounded-lg overflow-hidden fade-in">
+      <div class="bg-warm-50 px-5 py-3 border-b border-warm-200 flex items-center justify-between">
+        <span class="text-warm-600 text-sm font-medium">with-ai/prompt.md</span>
+        <button
+          onclick="copyPrompt()"
+          class="copy-btn bg-navy-600 text-white text-xs font-medium px-4 py-1.5 rounded hover:bg-navy-500 transition"
+        >
+          コピー
+        </button>
+      </div>
+      <div class="code-scroll">
+        <pre><code class="language-markdown" id="prompt-content"># テスト自動生成プロンプト
+
+対象ファイル `./input/date-utils.ts` に対して、Vitestの包括的テストスイートを生成してください。
+
+## 技術仕様
+
+- フレームワーク: Vitest（`import { describe, it, expect } from 'vitest'`）
+- テスト記述: 日本語（describe / it のラベルは全て日本語）
+- 関数ごとに describe ブロックを分割
+- 各テストは独立実行可能（テスト間の状態依存なし）
+- 出力: 1ファイル `date-utils.test.ts` に集約
+
+## 対象関数（全10関数を網羅すること）
+
+formatDate, parseDate, addBusinessDays, isHoliday, getNextBusinessDay,
+diffInBusinessDays, getQuarter, getFiscalYear, isLeapYear, getLastDayOfMonth
+
+## テスト観点
+
+合計60-80件を目安に、以下の5カテゴリを全関数に対して検討する。
+
+### 1. 正常系
+各関数の代表的な入力で期待値が返ることを確認する。
+formatDate なら4種のフォーマット全てを検証する。
+
+### 2. 境界値
+日付処理で頻出する境界条件を明示的にテストする。
+- 月初(1日) / 月末(28,29,30,31日)
+- 年末(12/31) / 年始(1/1) の跨ぎ
+- 四半期の切り替わり: Q1→Q2(3月末/4月初)、Q2→Q3、Q3→Q4
+- 会計年度の境界: 3月31日 vs 4月1日
+
+### 3. うるう年
+うるう年の判定ロジックには4つのルールがある。全パターンを検証する。
+- 4で割り切れる → うるう年（2024年）
+- 100で割り切れる → 平年（1900年）
+- 400で割り切れる → うるう年（2000年）
+- 上記いずれでもない → 平年（2025年）
+
+2月29日に関しては parseDate と getLastDayOfMonth の両方で、
+うるう年/平年の挙動を確認する。
+
+### 4. 営業日計算の特殊ケース
+addBusinessDays / getNextBusinessDay / diffInBusinessDays で以下をカバーする。
+- 金曜+1営業日 = 翌週月曜（週末スキップ）
+- 祝日をまたぐ加算（GW、建国記念の日、年末年始）
+- 振替休日: 祝日が日曜に当たる場合の翌月曜判定
+- 負の営業日数による過去方向の遡行
+- 0営業日の場合は同日を返す
+- 元のDateオブジェクトが破壊されないこと（不変性）
+
+### 5. 異常系・不正入力
+全関数に対し、想定外の入力でエラーがスローされることを確認する。
+- `new Date('invalid')` → 無効な日付エラー
+- `null`, `undefined` → エラー（`@ts-expect-error` 付与）
+- 文字列を Date の代わりに渡す（`@ts-expect-error` 付与）
+- 範囲外の月(0, 13)、存在しない日(4/31)
+- 小数の営業日数、小数の年・月
+
+### 6. 関数間の整合性
+複数の関数を組み合わせた結果が矛盾しないことを検証する。
+- `formatDate` → `parseDate` のラウンドトリップ
+- `addBusinessDays(start, n)` した結果と `diffInBusinessDays` の逆算が一致する
+
+## 品質基準
+
+- `@ts-expect-error` は型チェック回避が目的の箇所にのみ使用する
+- マジックナンバーの曜日（0=日, 1=月 ... 6=土）にはコメントで曜日名を添える
+- 祝日テストでは、どの祝日かを it のラベルまたはコメントで明記する</code></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- デモ手順 -->
+  <section class="bg-navy-600 text-white">
+    <div class="max-w-7xl mx-auto px-6 py-12">
+      <h2 class="text-xl font-bold mb-8">デモ手順</h2>
+      <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div class="bg-navy-500 rounded-lg p-5">
+          <p class="text-navy-200 text-xs mb-2">Step 1</p>
+          <p class="text-sm leading-relaxed">input/date-utils.ts を開き、10個の関数の実装を確認する</p>
+        </div>
+        <div class="bg-navy-500 rounded-lg p-5">
+          <p class="text-navy-200 text-xs mb-2">Step 2</p>
+          <p class="text-sm leading-relaxed">before/ のテストを読み、何が足りないか考えてもらう</p>
+        </div>
+        <div class="bg-navy-500 rounded-lg p-5">
+          <p class="text-navy-200 text-xs mb-2">Step 3</p>
+          <p class="text-sm leading-relaxed">prompt.md をClaude Codeに投入し、テスト生成を実行</p>
+        </div>
+        <div class="bg-navy-500 rounded-lg p-5">
+          <p class="text-navy-200 text-xs mb-2">Step 4</p>
+          <p class="text-sm leading-relaxed">生成結果と expected-output/ を比較し、カバレッジの差分を分析</p>
+        </div>
+        <div class="bg-navy-500 rounded-lg p-5">
+          <p class="text-navy-200 text-xs mb-2">Step 5</p>
+          <p class="text-sm leading-relaxed">テスト密度がリグレッション防止にどう効くかを議論</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 学びのポイント -->
+  <section class="max-w-7xl mx-auto px-6 py-12">
+    <h2 class="text-xl font-bold text-navy-600 mb-6">この体験から得られること</h2>
+    <div class="max-w-3xl space-y-4">
+      <p class="text-warm-600 text-sm leading-relaxed">
+        テスト生成でAIが力を発揮するのは網羅性の部分。
+        人間は正常系を書いたあと、境界値や異常系の列挙を後回しにしがち。AIはこの作業を苦にしない。
+      </p>
+      <p class="text-warm-600 text-sm leading-relaxed">
+        ただし「テストを書いて」だけでは正常系ばかりが返ってくる。
+        「境界値」「異常系」「営業日の祝日チェーン」のように観点を明示することが、実用的なテストを引き出す分岐点になる。プロンプト設計が品質を決める。
+      </p>
+      <p class="text-warm-600 text-sm leading-relaxed">
+        テスト件数を16倍にしたところでバグが16倍見つかるわけではない。
+        ただし、日付計算のような「ほぼ正しいが特定条件で壊れる」ロジックには、安全網の密度が効く。
+      </p>
+    </div>
+  </section>
+
+  <!-- フッター -->
+  <footer class="bg-warm-50 border-t border-warm-200">
+    <div class="max-w-7xl mx-auto px-6 py-6 flex items-center justify-between">
+      <p class="text-warm-400 text-xs">06_test-generation -- AI駆動開発デモ</p>
+      <a href="../showcase/index.html" class="bg-navy-600 text-white text-sm font-medium px-6 py-2.5 rounded hover:bg-navy-500 transition">
+        Showcaseに戻る
+      </a>
+    </div>
+  </footer>
+
+  <script>
+    // フェードインアニメーション
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+        }
+      });
+    }, { threshold: 0.1 });
+
+    document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
+
+    // ソースコード表示切り替え
+    function toggleSection(id) {
+      const el = document.getElementById(id);
+      el.classList.toggle('hidden');
+    }
+
+    // プロンプトコピー
+    function copyPrompt() {
+      const content = document.getElementById('prompt-content').textContent;
+      navigator.clipboard.writeText(content).then(() => {
+        const btn = document.querySelector('.copy-btn');
+        const original = btn.textContent;
+        btn.textContent = 'コピー完了';
+        btn.classList.remove('bg-navy-600', 'hover:bg-navy-500');
+        btn.classList.add('bg-warm-500');
+        setTimeout(() => {
+          btn.textContent = original;
+          btn.classList.remove('bg-warm-500');
+          btn.classList.add('bg-navy-600', 'hover:bg-navy-500');
+        }, 2000);
+      });
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,52 @@
+// ブログプラットフォーム用Prismaスキーマ
+// アプリケーションコードは別途実装する
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Post {
+  id        String     @id @default(cuid())
+  title     String
+  content   String
+  slug      String     @unique
+  status    PostStatus @default(DRAFT)
+  createdAt DateTime   @default(now()) @map("created_at")
+  updatedAt DateTime   @updatedAt @map("updated_at")
+
+  // リレーション
+  author   Author @relation(fields: [authorId], references: [id])
+  authorId String @map("author_id")
+  tags     Tag[]
+
+  @@map("posts")
+}
+
+model Author {
+  id    String @id @default(cuid())
+  name  String
+  email String @unique
+  posts Post[]
+
+  @@map("authors")
+}
+
+model Tag {
+  id    String @id @default(cuid())
+  name  String @unique
+  posts Post[]
+
+  @@map("tags")
+}
+
+enum PostStatus {
+  DRAFT     @map("draft")
+  PUBLISHED @map("published")
+
+  @@map("post_status")
+}

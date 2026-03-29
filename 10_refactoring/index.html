@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>10_refactoring - リファクタリング | AI Dev Demo</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-typescript.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-markdown.min.js"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        navy: {
+          50: '#f0f4f8',
+          100: '#d9e2ec',
+          200: '#bcccdc',
+          300: '#9fb3c8',
+          400: '#829ab1',
+          500: '#627d98',
+          600: '#486581',
+          700: '#334e68',
+          800: '#1e3a5f',
+          900: '#102a43',
+        },
+        warm: {
+          50: '#fafaf9',
+          100: '#f5f5f4',
+          200: '#e7e5e4',
+          300: '#d6d3d1',
+          400: '#a8a29e',
+          500: '#6b7280',
+          600: '#57534e',
+          700: '#44403c',
+          800: '#292524',
+          900: '#1c1917',
+        }
+      }
+    }
+  }
+}
+</script>
+<style>
+  html { scroll-behavior: smooth; }
+  body { font-family: 'Helvetica Neue', 'Yu Gothic', 'Hiragino Kaku Gothic ProN', sans-serif; }
+  pre[class*="language-"] { margin: 0; border-radius: 0 0 8px 8px; font-size: 13px; line-height: 1.5; max-height: 600px; }
+  code[class*="language-"] { font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; font-size: 13px; }
+  .code-header { border-radius: 8px 8px 0 0; }
+  .annotation-bad { border-left: 3px solid #dc2626; background: #fef2f2; }
+  .annotation-good { border-left: 3px solid #1e3a5f; background: #f0f4f8; }
+  .tab-btn.active { border-bottom: 2px solid #1e3a5f; color: #1e3a5f; font-weight: 600; }
+  .tab-btn { border-bottom: 2px solid transparent; color: #6b7280; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+  .copy-btn { transition: all 0.15s ease; }
+  .copy-btn:hover { background: #1e3a5f; color: #fff; }
+  .copy-btn.copied { background: #1e3a5f; color: #fff; }
+  .stat-num { font-variant-numeric: tabular-nums; }
+  .card-hover { transition: transform 0.15s ease, box-shadow 0.15s ease; }
+  .card-hover:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(30,58,95,0.12); }
+  .file-tree-item { transition: background 0.1s ease; }
+  .file-tree-item:hover { background: #f0f4f8; }
+</style>
+</head>
+<body class="bg-white text-warm-800 antialiased">
+
+<!-- ヘッダー -->
+<header class="bg-navy-800 text-white">
+  <div class="max-w-7xl mx-auto px-6 py-8">
+    <div class="flex items-center justify-between mb-4">
+      <a href="../showcase/index.html" class="text-navy-200 hover:text-white text-sm flex items-center gap-1 transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        showcase に戻る
+      </a>
+      <span class="text-navy-300 text-sm font-mono">Theme 10</span>
+    </div>
+    <div class="flex items-end gap-4">
+      <span class="text-navy-300 text-4xl font-mono font-light">10</span>
+      <div>
+        <h1 class="text-3xl font-bold tracking-tight">リファクタリング</h1>
+        <p class="text-navy-200 mt-1">モノリシック関数を責務分離された小関数群に分解する</p>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- スタッツバー -->
+<div class="bg-navy-50 border-b border-navy-100">
+  <div class="max-w-7xl mx-auto px-6 py-4 flex flex-wrap gap-8">
+    <div class="flex items-center gap-2">
+      <span class="text-warm-500 text-xs uppercase tracking-wider">Before</span>
+      <span class="stat-num text-2xl font-bold text-navy-800">199</span>
+      <span class="text-warm-500 text-sm">行 / 1ファイル</span>
+    </div>
+    <div class="flex items-center gap-2">
+      <svg class="w-5 h-5 text-navy-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+    </div>
+    <div class="flex items-center gap-2">
+      <span class="text-warm-500 text-xs uppercase tracking-wider">After</span>
+      <span class="stat-num text-2xl font-bold text-navy-800">10</span>
+      <span class="text-warm-500 text-sm">ファイル / 型安全 / テスト付き</span>
+    </div>
+    <div class="ml-auto flex items-center gap-2">
+      <span class="text-warm-500 text-xs uppercase tracking-wider">所要時間</span>
+      <span class="stat-num text-2xl font-bold text-navy-800">15</span>
+      <span class="text-warm-500 text-sm">分（AI活用時）</span>
+    </div>
+  </div>
+</div>
+
+<!-- メインコンテンツ -->
+<main class="max-w-7xl mx-auto px-6 py-10">
+
+  <!-- セクション1: Before / After 比較 -->
+  <section class="mb-16">
+    <h2 class="text-xl font-bold text-navy-800 mb-6 pb-2 border-b border-navy-100">Before / After コード比較</h2>
+
+    <div class="grid lg:grid-cols-2 gap-6">
+
+      <!-- Before 側 -->
+      <div>
+        <div class="flex items-center gap-2 mb-3">
+          <span class="inline-block w-3 h-3 rounded-full bg-red-500"></span>
+          <span class="font-bold text-warm-700">Before: 199行の1関数</span>
+        </div>
+
+        <!-- 注釈 -->
+        <div class="annotation-bad px-4 py-3 mb-3 rounded-r text-sm text-warm-700">
+          CSVパース、バリデーション、変換、DB操作、通知送信を1関数に詰め込み。any だらけ、マジックナンバー散在、テスト不可能。
+        </div>
+
+        <div>
+          <div class="code-header bg-warm-700 text-warm-100 px-4 py-2 text-xs font-mono flex justify-between items-center">
+            <span>input/import-processor.ts</span>
+            <span class="text-warm-400">199 lines</span>
+          </div>
+          <pre class="!max-h-[500px] overflow-auto"><code class="language-typescript">// CSV インポート処理 -- 全処理を1関数に詰め込んだモノリシック実装
+// 動くが、テスト不能・変更困難・読解に30分かかる
+
+import * as fs from 'fs';
+
+const db = require('../lib/database');
+const mailer = require('../lib/mailer');
+
+export async function processCSVImport(filePath: string) {
+  let s = 0, f = 0, sk = 0;
+  let errors: any[] = [];
+  let results: any[] = [];
+  try {
+    if (!fs.existsSync(filePath)) {
+      console.log('ファイルが見つかりません: ' + filePath);
+      return { success: false, message: 'ファイルが見つかりません' };
+    }
+    const content = fs.readFileSync(filePath, 'utf-8');
+    const lines = content.split('\n');
+    if (lines.length &lt; 2) {
+      return { success: false, message: 'データ行がありません' };
+    }
+    // ヘッダーパース
+    let headers: any = [];
+    let tmp = '';
+    let q = false;
+    for (let i = 0; i &lt; lines[0].length; i++) {
+      if (lines[0][i] === '"') { q = !q; }
+      else if (lines[0][i] === ',' &amp;&amp; !q) { headers.push(tmp.trim()); tmp = ''; }
+      else { tmp += lines[0][i]; }
+    }
+    headers.push(tmp.trim());
+    // 必須ヘッダーチェック
+    if (headers.indexOf('名前') === -1 || headers.indexOf('メールアドレス') === -1 ||
+        headers.indexOf('電話番号') === -1 || headers.indexOf('都道府県') === -1 ||
+        headers.indexOf('生年月日') === -1 || headers.indexOf('金額') === -1) {
+      return { success: false, message: '必須ヘッダーがありません' };
+    }
+    for (let i = 1; i &lt; lines.length; i++) {
+      if (lines[i].trim() === '') continue;
+      // 行パース（ヘッダーと同じロジックをもう一度書く）
+      let fields: any = [];
+      let c = '';
+      let inQ = false;
+      for (let j = 0; j &lt; lines[i].length; j++) {
+        if (lines[i][j] === '"') { inQ = !inQ; }
+        else if (lines[i][j] === ',' &amp;&amp; !inQ) { fields.push(c.trim()); c = ''; }
+        else { c += lines[i][j]; }
+      }
+      fields.push(c.trim());
+      // ... 以下バリデーション 7段ネスト、
+      // 年齢計算2回コピペ、DB操作、通知まで続く ...
+      if (!rec['メールアドレス'] || rec['メールアドレス'].length === 0) {
+        // ... 省略 ...
+      } else {
+        if (rec['メールアドレス'].indexOf('@') === -1) {
+          // ... 省略 ...
+        } else {
+          if (rec['メールアドレス'].indexOf('.') === -1) {
+            // ... 省略 ...
+          } else {
+            const p = rec['メールアドレス'].split('@');
+            if (p.length !== 2 || p[1].length &lt; 3) {
+              // 7段目のネスト
+            }
+          }
+        }
+      }
+    }
+    return { success: true, summary: { total: lines.length - 1,
+      success: s, fail: f, skip: sk }, errors, results };
+  } catch (e) {
+    console.log('予期せぬエラー: ' + e);
+    return { success: false, message: '予期せぬエラーが発生しました' };
+  }
+}</code></pre>
+        </div>
+
+        <!-- 問題点リスト -->
+        <div class="mt-4 space-y-2">
+          <div class="annotation-bad px-3 py-2 rounded-r text-xs text-warm-700">
+            <span class="font-semibold">L24-32, L42-50</span> -- CSVパースロジックが2箇所にコピペ
+          </div>
+          <div class="annotation-bad px-3 py-2 rounded-r text-xs text-warm-700">
+            <span class="font-semibold">L10</span> -- 変数名 s, f, sk, q, c, tmp, rec -- 意味不明
+          </div>
+          <div class="annotation-bad px-3 py-2 rounded-r text-xs text-warm-700">
+            <span class="font-semibold">L64, 82, 94, 121, 136</span> -- マジックナンバー: 50, 3, 10, 11, 18, 120, 100, 999999
+          </div>
+          <div class="annotation-bad px-3 py-2 rounded-r text-xs text-warm-700">
+            <span class="font-semibold">L116-124, L146-151</span> -- 年齢計算ロジックが2回コピペ
+          </div>
+          <div class="annotation-bad px-3 py-2 rounded-r text-xs text-warm-700">
+            <span class="font-semibold">全体</span> -- any 12箇所、型定義ゼロ、テスト書けない構造
+          </div>
+        </div>
+      </div>
+
+      <!-- After 側 -->
+      <div>
+        <div class="flex items-center gap-2 mb-3">
+          <span class="inline-block w-3 h-3 rounded-full bg-navy-600"></span>
+          <span class="font-bold text-warm-700">After: 10ファイルに分離</span>
+        </div>
+
+        <div class="annotation-good px-4 py-3 mb-3 rounded-r text-sm text-warm-700">
+          型安全、単一責務、テスト可能。オーケストレータは70行。各モジュールが独立してテストできる。
+        </div>
+
+        <!-- ファイルタブ -->
+        <div class="border border-warm-200 rounded-lg overflow-hidden">
+          <div class="flex overflow-x-auto bg-warm-50 border-b border-warm-200 px-1 pt-1 gap-1" id="after-tabs">
+            <button class="tab-btn active px-3 py-2 text-xs font-mono whitespace-nowrap rounded-t" data-tab="tab-orchestrator">import-processor.ts</button>
+            <button class="tab-btn px-3 py-2 text-xs font-mono whitespace-nowrap rounded-t" data-tab="tab-types">types.ts</button>
+            <button class="tab-btn px-3 py-2 text-xs font-mono whitespace-nowrap rounded-t" data-tab="tab-validator">validator.ts</button>
+            <button class="tab-btn px-3 py-2 text-xs font-mono whitespace-nowrap rounded-t" data-tab="tab-constants">constants.ts</button>
+            <button class="tab-btn px-3 py-2 text-xs font-mono whitespace-nowrap rounded-t" data-tab="tab-test">test.ts</button>
+          </div>
+
+          <!-- オーケストレータ -->
+          <div class="tab-content active" id="tab-orchestrator">
+            <pre><code class="language-typescript">// オーケストレータ -- 各モジュールを組み合わせるだけ
+// このファイル自身はビジネスロジックを持たない
+
+import { readCSV } from './csv-reader';
+import { validateRecord } from './validator';
+import { transformRecord } from './transformer';
+import { checkDuplicate, type DatabaseClient } from './duplicate-checker';
+import { insertCustomer } from './repository';
+import { notifyErrors, type MailClient } from './notifier';
+import type { ImportResult, ValidationError, CustomerRecord } from './types';
+
+export async function processCSVImport(
+  filePath: string,
+  db: DatabaseClient,
+  mailer: MailClient
+): Promise&lt;ImportResult&gt; {
+  const { rows } = readCSV(filePath);
+
+  let successCount = 0;
+  let failCount = 0;
+  let skipCount = 0;
+  const errors: ValidationError[] = [];
+  const results: CustomerRecord[] = [];
+
+  for (let i = 0; i &lt; rows.length; i++) {
+    const rowNumber = i + 2;
+    const raw = rows[i];
+
+    const validation = validateRecord(raw, rowNumber);
+    if (!validation.valid) {
+      errors.push(...validation.errors);
+      failCount++;
+      continue;
+    }
+
+    const record = transformRecord(raw);
+
+    try {
+      const { isDuplicate } = await checkDuplicate(db, record.email, record.phone);
+      if (isDuplicate) {
+        errors.push({ row: rowNumber,
+          message: '既存レコードと重複しています（メールまたは電話番号）' });
+        skipCount++;
+        continue;
+      }
+    } catch {
+      errors.push({ row: rowNumber,
+        message: 'DB重複チェック中にエラーが発生しました' });
+      failCount++;
+      continue;
+    }
+
+    try {
+      await insertCustomer(db, record);
+      successCount++;
+      results.push(record);
+    } catch {
+      errors.push({ row: rowNumber, message: 'DB挿入中にエラーが発生しました' });
+      failCount++;
+    }
+  }
+
+  const summary = { total: rows.length, success: successCount,
+    fail: failCount, skip: skipCount };
+
+  try {
+    await notifyErrors(mailer, filePath, errors, summary);
+  } catch {
+    // 通知失敗はインポート結果に影響させない
+  }
+
+  return { success: true, summary, errors, results };
+}</code></pre>
+          </div>
+
+          <!-- types.ts -->
+          <div class="tab-content" id="tab-types">
+            <pre><code class="language-typescript">// 型定義 -- any は一切使わない。readonly で不変性を保証。
+
+export interface RawRecord {
+  readonly 名前: string;
+  readonly メールアドレス: string;
+  readonly 電話番号: string;
+  readonly 都道府県: string;
+  readonly 生年月日: string;
+  readonly 金額: string;
+  readonly [key: string]: string;
+}
+
+export interface CustomerRecord {
+  readonly name: string;
+  readonly email: string;
+  readonly phone: string;
+  readonly prefecture: string;
+  readonly birthDate: string;
+  readonly age: number;
+  readonly amount: number;
+  readonly importedAt: string;
+}
+
+export interface ValidationError {
+  readonly row: number;
+  readonly field?: string;
+  readonly message: string;
+}
+
+export interface ImportSummary {
+  readonly total: number;
+  readonly success: number;
+  readonly fail: number;
+  readonly skip: number;
+}
+
+export interface ImportResult {
+  readonly success: boolean;
+  readonly message?: string;
+  readonly summary?: ImportSummary;
+  readonly errors?: ReadonlyArray&lt;ValidationError&gt;;
+  readonly results?: ReadonlyArray&lt;CustomerRecord&gt;;
+}
+
+export interface ParsedCSV {
+  readonly headers: ReadonlyArray&lt;string&gt;;
+  readonly rows: ReadonlyArray&lt;RawRecord&gt;;
+}
+
+export interface DuplicateCheckResult {
+  readonly isDuplicate: boolean;
+  readonly matchedField?: 'email' | 'phone';
+}</code></pre>
+          </div>
+
+          <!-- validator.ts -->
+          <div class="tab-content" id="tab-validator">
+            <pre><code class="language-typescript">// バリデーション -- Zodスキーマで宣言的にルール定義
+
+import { z } from 'zod';
+import {
+  NAME_MAX_LENGTH, PHONE_MIN_DIGITS, PHONE_MAX_DIGITS,
+  AGE_MIN, AGE_MAX, AMOUNT_MIN, AMOUNT_MAX,
+  EMAIL_DOMAIN_MIN_LENGTH,
+} from './constants';
+import type { RawRecord, ValidationError } from './types';
+
+const phoneDigitsSchema = z
+  .string()
+  .min(1, { message: '電話番号は必須です' })
+  .refine(
+    (val) =&gt; {
+      const digits = val.replace(/[-\s()]/g, '');
+      return digits.length &gt;= PHONE_MIN_DIGITS
+        &amp;&amp; digits.length &lt;= PHONE_MAX_DIGITS;
+    },
+    { message: `電話番号は${PHONE_MIN_DIGITS}〜${PHONE_MAX_DIGITS}桁` }
+  );
+
+const csvRecordSchema = z.object({
+  名前: z.string()
+    .min(1, { message: '名前は必須です' })
+    .max(NAME_MAX_LENGTH,
+      { message: `名前は${NAME_MAX_LENGTH}文字以内` }),
+  メールアドレス: emailSchema,
+  電話番号: phoneDigitsSchema,
+  都道府県: z.string().min(1, { message: '都道府県は必須です' }),
+  生年月日: birthDateSchema,
+  金額: amountSchema,
+});
+
+export function validateRecord(
+  record: RawRecord, rowNumber: number
+): FieldValidationResult {
+  const result = csvRecordSchema.safeParse(record);
+  if (result.success) {
+    return { valid: true, errors: [] };
+  }
+  // Zodのエラーを ValidationError 形式に変換
+  const errors: ValidationError[] = result.error.issues.map((issue) =&gt; ({
+    row: rowNumber,
+    field: issue.path[0]?.toString(),
+    message: issue.message,
+  }));
+  return { valid: false, errors: [errors[0]] };
+}</code></pre>
+          </div>
+
+          <!-- constants.ts -->
+          <div class="tab-content" id="tab-constants">
+            <pre><code class="language-typescript">// 定数定義 -- マジックナンバーとハードコード文字列を排除
+
+export const NAME_MAX_LENGTH = 50;
+export const PHONE_MIN_DIGITS = 10;
+export const PHONE_MAX_DIGITS = 11;
+export const AGE_MIN = 18;
+export const AGE_MAX = 120;
+export const AMOUNT_MIN = 100;
+export const AMOUNT_MAX = 999_999;
+
+export const REQUIRED_HEADERS = [
+  '名前', 'メールアドレス', '電話番号',
+  '都道府県', '生年月日', '金額',
+] as const;
+
+export const EMAIL_DOMAIN_MIN_LENGTH = 3;
+export const NOTIFICATION_RECIPIENT = 'admin@example.com';
+export const NOTIFICATION_SUBJECT = 'CSVインポート エラー通知';
+
+export function buildNotificationBody(
+  filePath: string,
+  errorLines: ReadonlyArray&lt;string&gt;,
+  successCount: number,
+  failCount: number,
+  skipCount: number
+): string {
+  return [
+    'CSVインポート処理でエラーが発生しました。',
+    '', `ファイル: ${filePath}`,
+    '', '--- エラー一覧 ---', errorLines.join('\n'),
+    '', '--- 集計 ---',
+    `成功: ${successCount}件`,
+    `失敗: ${failCount}件`,
+    `スキップ（重複）: ${skipCount}件`,
+  ].join('\n');
+}</code></pre>
+          </div>
+
+          <!-- test -->
+          <div class="tab-content" id="tab-test">
+            <pre><code class="language-typescript">// 振る舞い保持テスト（抜粋）
+
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { processCSVImport } from './import-processor';
+
+vi.mock('./csv-reader', () =&gt; ({ readCSV: vi.fn() }));
+import { readCSV } from './csv-reader';
+const mockReadCSV = vi.mocked(readCSV);
+
+function validRawRecord(overrides = {}) {
+  return {
+    '名前': '田中太郎',
+    'メールアドレス': 'tanaka@example.com',
+    '電話番号': '090-1234-5678',
+    '都道府県': '東京都',
+    '生年月日': '1990-05-15',
+    '金額': '10000',
+    ...overrides,
+  };
+}
+
+describe('processCSVImport', () =&gt; {
+  it('有効なレコード1件で成功件数1', async () =&gt; {
+    mockReadCSV.mockReturnValue({
+      headers: ['名前', 'メールアドレス', '電話番号',
+        '都道府県', '生年月日', '金額'],
+      rows: [validRawRecord()],
+    });
+    const result = await processCSVImport('/tmp/test.csv', db, mailer);
+    expect(result.success).toBe(true);
+    expect(result.summary?.success).toBe(1);
+    expect(result.results?.[0].name).toBe('田中太郎');
+  });
+
+  it('名前が空なら失敗', async () =&gt; { /* ... */ });
+  it('重複レコードはスキップされる', async () =&gt; { /* ... */ });
+  it('DB障害なら失敗として計上', async () =&gt; { /* ... */ });
+  it('メール送信失敗でもインポートはsuccess', async () =&gt; { /* ... */ });
+  it('有効・無効・重複の混在を正しく集計', async () =&gt; { /* ... */ });
+});</code></pre>
+          </div>
+        </div>
+
+        <!-- 改善点リスト -->
+        <div class="mt-4 space-y-2">
+          <div class="annotation-good px-3 py-2 rounded-r text-xs text-warm-700">
+            <span class="font-semibold">types.ts</span> -- any ゼロ、readonly で不変性保証、6つの型を明示定義
+          </div>
+          <div class="annotation-good px-3 py-2 rounded-r text-xs text-warm-700">
+            <span class="font-semibold">validator.ts</span> -- Zodスキーマで宣言的定義、エラーに「どのフィールドが」「なぜ」の情報
+          </div>
+          <div class="annotation-good px-3 py-2 rounded-r text-xs text-warm-700">
+            <span class="font-semibold">duplicate-checker.ts</span> -- DatabaseClient インターフェースでDI、エラーを握りつぶさない
+          </div>
+          <div class="annotation-good px-3 py-2 rounded-r text-xs text-warm-700">
+            <span class="font-semibold">import-processor.ts</span> -- ビジネスロジックなし、組み合わせるだけの70行
+          </div>
+          <div class="annotation-good px-3 py-2 rounded-r text-xs text-warm-700">
+            <span class="font-semibold">test.ts</span> -- 13ケース: 正常系、バリデーション、重複、DBエラー、通知、複合
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- セクション2: 失敗パターン（壊れたリファクタリング） -->
+  <section class="mb-16">
+    <h2 class="text-xl font-bold text-navy-800 mb-2 pb-2 border-b border-navy-100">失敗パターン: 中途半端なリファクタリング</h2>
+    <p class="text-warm-600 text-sm mb-6">
+      関数を切り出し始めたが、3つの致命バグを埋め込んだ実例。よくある失敗パターンとして教材にも使える。
+    </p>
+
+    <div class="grid md:grid-cols-3 gap-4 mb-6">
+      <div class="border border-red-200 rounded-lg p-4 bg-red-50/50">
+        <div class="text-red-700 font-bold text-sm mb-2">Bug 1: エラー詳細の消失</div>
+        <p class="text-warm-700 text-xs leading-relaxed">
+          validateRecord が boolean だけ返す設計にしたせいで「名前が空」なのか「金額が範囲外」なのか判別不能になった。元のコードではフィールド単位のエラーメッセージを蓄積していたのに、リファクタリングで情報が消えた。
+        </p>
+        <div class="mt-2 font-mono text-xs text-red-600 bg-red-100 rounded px-2 py-1">
+          errors.push({ message: 'バリデーションエラー' })
+        </div>
+      </div>
+      <div class="border border-red-200 rounded-lg p-4 bg-red-50/50">
+        <div class="text-red-700 font-bold text-sm mb-2">Bug 2: DB障害の握りつぶし</div>
+        <p class="text-warm-700 text-xs leading-relaxed">
+          checkDuplicate が DB障害時に false（重複なし）を返す。接続が切れている状態で全レコードが「重複なし」と判定され、不正データが挿入される。
+        </p>
+        <div class="mt-2 font-mono text-xs text-red-600 bg-red-100 rounded px-2 py-1">
+          catch (error) { return false; }
+        </div>
+      </div>
+      <div class="border border-red-200 rounded-lg p-4 bg-red-50/50">
+        <div class="text-red-700 font-bold text-sm mb-2">Bug 3: errors.push 漏れ</div>
+        <p class="text-warm-700 text-xs leading-relaxed">
+          重複スキップ時とDB挿入失敗時に errors.push を忘れている。通知メールに載らない「沈黙の障害」。カウンタだけ増えてエラー一覧に出ない。
+        </p>
+        <div class="mt-2 font-mono text-xs text-red-600 bg-red-100 rounded px-2 py-1">
+          skipCount++; continue; // errors.push なし
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- セクション3: 差分ハイライトカード -->
+  <section class="mb-16">
+    <h2 class="text-xl font-bold text-navy-800 mb-6 pb-2 border-b border-navy-100">主要な改善ポイント</h2>
+
+    <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
+
+      <div class="card-hover border border-warm-200 rounded-lg overflow-hidden">
+        <div class="bg-navy-800 text-white px-4 py-3">
+          <div class="font-bold text-sm">any の排除</div>
+        </div>
+        <div class="p-4">
+          <div class="flex gap-4 text-xs mb-3">
+            <div class="flex-1">
+              <div class="text-warm-500 mb-1">Before</div>
+              <div class="font-mono bg-red-50 text-red-700 rounded px-2 py-1">let errors: any[] = []</div>
+            </div>
+            <div class="flex-1">
+              <div class="text-warm-500 mb-1">After</div>
+              <div class="font-mono bg-navy-50 text-navy-800 rounded px-2 py-1">const errors: ValidationError[] = []</div>
+            </div>
+          </div>
+          <p class="text-xs text-warm-600">12箇所の any を完全排除。ReadonlyArray と readonly で不変性を保証。コンパイル時にミスを検出できる。</p>
+        </div>
+      </div>
+
+      <div class="card-hover border border-warm-200 rounded-lg overflow-hidden">
+        <div class="bg-navy-800 text-white px-4 py-3">
+          <div class="font-bold text-sm">マジックナンバーの定数化</div>
+        </div>
+        <div class="p-4">
+          <div class="flex gap-4 text-xs mb-3">
+            <div class="flex-1">
+              <div class="text-warm-500 mb-1">Before</div>
+              <div class="font-mono bg-red-50 text-red-700 rounded px-2 py-1">if (a &lt; 18 || a &gt; 120)</div>
+            </div>
+            <div class="flex-1">
+              <div class="text-warm-500 mb-1">After</div>
+              <div class="font-mono bg-navy-50 text-navy-800 rounded px-2 py-1">age &gt;= AGE_MIN &amp;&amp; age &lt;= AGE_MAX</div>
+            </div>
+          </div>
+          <p class="text-xs text-warm-600">50, 10, 11, 18, 120, 100, 999999, 3 -- 全8種のマジックナンバーを名前付き定数に。変更時に1箇所直せば済む。</p>
+        </div>
+      </div>
+
+      <div class="card-hover border border-warm-200 rounded-lg overflow-hidden">
+        <div class="bg-navy-800 text-white px-4 py-3">
+          <div class="font-bold text-sm">コピペロジックの統合</div>
+        </div>
+        <div class="p-4">
+          <div class="flex gap-4 text-xs mb-3">
+            <div class="flex-1">
+              <div class="text-warm-500 mb-1">Before</div>
+              <div class="font-mono bg-red-50 text-red-700 rounded px-2 py-1">CSVパース x2, 年齢計算 x2</div>
+            </div>
+            <div class="flex-1">
+              <div class="text-warm-500 mb-1">After</div>
+              <div class="font-mono bg-navy-50 text-navy-800 rounded px-2 py-1">parseLine() x1, calculateAge() x1</div>
+            </div>
+          </div>
+          <p class="text-xs text-warm-600">同一ロジックの2重実装を解消。片方だけ修正して不整合になるリスクがなくなる。</p>
+        </div>
+      </div>
+
+      <div class="card-hover border border-warm-200 rounded-lg overflow-hidden">
+        <div class="bg-navy-800 text-white px-4 py-3">
+          <div class="font-bold text-sm">依存性注入でテスト可能に</div>
+        </div>
+        <div class="p-4">
+          <div class="flex gap-4 text-xs mb-3">
+            <div class="flex-1">
+              <div class="text-warm-500 mb-1">Before</div>
+              <div class="font-mono bg-red-50 text-red-700 rounded px-2 py-1">const db = require('../lib/database')</div>
+            </div>
+            <div class="flex-1">
+              <div class="text-warm-500 mb-1">After</div>
+              <div class="font-mono bg-navy-50 text-navy-800 rounded px-2 py-1">processCSVImport(path, db, mailer)</div>
+            </div>
+          </div>
+          <p class="text-xs text-warm-600">DB接続とメーラーを引数で受け取る設計に変更。テスト時にモックを注入できる。ファイルIOもモック化してテスト実行が数ミリ秒。</p>
+        </div>
+      </div>
+
+      <div class="card-hover border border-warm-200 rounded-lg overflow-hidden">
+        <div class="bg-navy-800 text-white px-4 py-3">
+          <div class="font-bold text-sm">Zodによる宣言的バリデーション</div>
+        </div>
+        <div class="p-4">
+          <div class="flex gap-4 text-xs mb-3">
+            <div class="flex-1">
+              <div class="text-warm-500 mb-1">Before</div>
+              <div class="font-mono bg-red-50 text-red-700 rounded px-2 py-1">if-else 7段ネスト</div>
+            </div>
+            <div class="flex-1">
+              <div class="text-warm-500 mb-1">After</div>
+              <div class="font-mono bg-navy-50 text-navy-800 rounded px-2 py-1">z.object({ 名前: z.string().min(1) })</div>
+            </div>
+          </div>
+          <p class="text-xs text-warm-600">バリデーションルールを手続き的 if-else からZodスキーマの宣言に転換。エラー時に「どのフィールドが」「なぜ」失敗したか自動で返る。</p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- セクション4: ファイル構成図 -->
+  <section class="mb-16">
+    <h2 class="text-xl font-bold text-navy-800 mb-6 pb-2 border-b border-navy-100">After のファイル構成</h2>
+
+    <div class="border border-warm-200 rounded-lg overflow-hidden max-w-2xl">
+      <div class="bg-warm-50 px-4 py-3 border-b border-warm-200">
+        <span class="font-mono text-sm text-warm-600">expected-output/src/</span>
+      </div>
+      <div class="divide-y divide-warm-100">
+        <div class="file-tree-item flex items-center gap-3 px-4 py-2.5">
+          <span class="w-2 h-2 rounded-full bg-navy-300"></span>
+          <span class="font-mono text-sm text-navy-800 flex-1">types.ts</span>
+          <span class="text-xs text-warm-500">型定義（any排除・readonly）</span>
+          <span class="text-xs text-warm-400 font-mono">58行</span>
+        </div>
+        <div class="file-tree-item flex items-center gap-3 px-4 py-2.5">
+          <span class="w-2 h-2 rounded-full bg-navy-300"></span>
+          <span class="font-mono text-sm text-navy-800 flex-1">constants.ts</span>
+          <span class="text-xs text-warm-500">マジックナンバーの定数化</span>
+          <span class="text-xs text-warm-400 font-mono">45行</span>
+        </div>
+        <div class="file-tree-item flex items-center gap-3 px-4 py-2.5">
+          <span class="w-2 h-2 rounded-full bg-navy-300"></span>
+          <span class="font-mono text-sm text-navy-800 flex-1">csv-reader.ts</span>
+          <span class="text-xs text-warm-500">ファイルIO隔離・パース</span>
+          <span class="text-xs text-warm-400 font-mono">68行</span>
+        </div>
+        <div class="file-tree-item flex items-center gap-3 px-4 py-2.5">
+          <span class="w-2 h-2 rounded-full bg-navy-300"></span>
+          <span class="font-mono text-sm text-navy-800 flex-1">validator.ts</span>
+          <span class="text-xs text-warm-500">Zodスキーマでバリデーション</span>
+          <span class="text-xs text-warm-400 font-mono">126行</span>
+        </div>
+        <div class="file-tree-item flex items-center gap-3 px-4 py-2.5">
+          <span class="w-2 h-2 rounded-full bg-navy-300"></span>
+          <span class="font-mono text-sm text-navy-800 flex-1">transformer.ts</span>
+          <span class="text-xs text-warm-500">純粋関数でデータ変換</span>
+          <span class="text-xs text-warm-400 font-mono">44行</span>
+        </div>
+        <div class="file-tree-item flex items-center gap-3 px-4 py-2.5">
+          <span class="w-2 h-2 rounded-full bg-navy-300"></span>
+          <span class="font-mono text-sm text-navy-800 flex-1">duplicate-checker.ts</span>
+          <span class="text-xs text-warm-500">重複検出（DI対応）</span>
+          <span class="text-xs text-warm-400 font-mono">26行</span>
+        </div>
+        <div class="file-tree-item flex items-center gap-3 px-4 py-2.5">
+          <span class="w-2 h-2 rounded-full bg-navy-300"></span>
+          <span class="font-mono text-sm text-navy-800 flex-1">repository.ts</span>
+          <span class="text-xs text-warm-500">DB操作の隔離</span>
+          <span class="text-xs text-warm-400 font-mono">24行</span>
+        </div>
+        <div class="file-tree-item flex items-center gap-3 px-4 py-2.5">
+          <span class="w-2 h-2 rounded-full bg-navy-300"></span>
+          <span class="font-mono text-sm text-navy-800 flex-1">notifier.ts</span>
+          <span class="text-xs text-warm-500">メール通知</span>
+          <span class="text-xs text-warm-400 font-mono">37行</span>
+        </div>
+        <div class="file-tree-item flex items-center gap-3 px-4 py-2.5 bg-navy-50">
+          <span class="w-2 h-2 rounded-full bg-navy-600"></span>
+          <span class="font-mono text-sm text-navy-800 font-semibold flex-1">import-processor.ts</span>
+          <span class="text-xs text-navy-600 font-semibold">オーケストレータ</span>
+          <span class="text-xs text-warm-400 font-mono">70行</span>
+        </div>
+        <div class="file-tree-item flex items-center gap-3 px-4 py-2.5">
+          <span class="w-2 h-2 rounded-full bg-green-400"></span>
+          <span class="font-mono text-sm text-navy-800 flex-1">import-processor.test.ts</span>
+          <span class="text-xs text-warm-500">vitest 13ケース</span>
+          <span class="text-xs text-warm-400 font-mono">325行</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- セクション5: プロンプトテンプレート -->
+  <section class="mb-16">
+    <h2 class="text-xl font-bold text-navy-800 mb-2 pb-2 border-b border-navy-100">AI活用: 段階的プロンプト</h2>
+    <p class="text-warm-600 text-sm mb-6">
+      Claude Code に以下のプロンプトを1ステップずつ投入する。一度に全部やらせず、各段階で動作確認してから次へ進む。
+    </p>
+
+    <div class="space-y-4">
+
+      <!-- Step 1 -->
+      <div class="border border-warm-200 rounded-lg overflow-hidden">
+        <button class="prompt-toggle w-full flex items-center justify-between px-4 py-3 bg-warm-50 hover:bg-warm-100 transition-colors text-left" data-target="prompt-1">
+          <div class="flex items-center gap-3">
+            <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-navy-800 text-white text-xs font-bold">1</span>
+            <span class="font-bold text-sm text-warm-700">分析（コード変更なし）</span>
+          </div>
+          <svg class="prompt-chevron w-4 h-4 text-warm-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+        </button>
+        <div class="prompt-body hidden" id="prompt-1">
+          <div class="p-4 relative">
+            <button class="copy-btn absolute top-2 right-2 text-xs border border-warm-300 text-warm-600 rounded px-2 py-1" data-copy="prompt-1-code">Copy</button>
+            <pre class="!rounded-lg !text-xs" id="prompt-1-code"><code class="language-markdown">input/import-processor.ts を読んで分析してほしい。コードは変更しない。
+
+確認したいこと:
+- この関数が担っている責務を全部挙げる
+- if-else の最深ネストは何段か
+- マジックナンバーを全部列挙する（行番号付き）
+- any が何箇所あるか
+- テストを書こうとしたとき、何が障害になるか
+
+出力は箇条書きで。</code></pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2 -->
+      <div class="border border-warm-200 rounded-lg overflow-hidden">
+        <button class="prompt-toggle w-full flex items-center justify-between px-4 py-3 bg-warm-50 hover:bg-warm-100 transition-colors text-left" data-target="prompt-2">
+          <div class="flex items-center gap-3">
+            <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-navy-800 text-white text-xs font-bold">2</span>
+            <span class="font-bold text-sm text-warm-700">型定義の抽出</span>
+          </div>
+          <svg class="prompt-chevron w-4 h-4 text-warm-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+        </button>
+        <div class="prompt-body hidden" id="prompt-2">
+          <div class="p-4 relative">
+            <button class="copy-btn absolute top-2 right-2 text-xs border border-warm-300 text-warm-600 rounded px-2 py-1" data-copy="prompt-2-code">Copy</button>
+            <pre class="!rounded-lg !text-xs" id="prompt-2-code"><code class="language-markdown">分析結果を踏まえて types.ts を作成してほしい。
+
+定義する型:
+- CSVから読み取った生データ1行（RawRecord）
+- DB挿入形式のレコード（CustomerRecord）
+- バリデーションエラーの詳細（ValidationError）
+- インポート結果の集計（ImportSummary）
+- 関数の戻り値（ImportResult）
+- CSVパース結果（ParsedCSV）
+
+条件:
+- any は一切使わない
+- readonly で不変性を保証する
+- ReadonlyArray を配列型に使う</code></pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 3 -->
+      <div class="border border-warm-200 rounded-lg overflow-hidden">
+        <button class="prompt-toggle w-full flex items-center justify-between px-4 py-3 bg-warm-50 hover:bg-warm-100 transition-colors text-left" data-target="prompt-3">
+          <div class="flex items-center gap-3">
+            <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-navy-800 text-white text-xs font-bold">3</span>
+            <span class="font-bold text-sm text-warm-700">定数の抽出</span>
+          </div>
+          <svg class="prompt-chevron w-4 h-4 text-warm-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+        </button>
+        <div class="prompt-body hidden" id="prompt-3">
+          <div class="p-4 relative">
+            <button class="copy-btn absolute top-2 right-2 text-xs border border-warm-300 text-warm-600 rounded px-2 py-1" data-copy="prompt-3-code">Copy</button>
+            <pre class="!rounded-lg !text-xs" id="prompt-3-code"><code class="language-markdown">マジックナンバーを constants.ts に抽出してほしい。
+
+対象:
+- 50（名前の最大文字数）
+- 10, 11（電話番号の桁数）
+- 18, 120（年齢の下限・上限）
+- 100, 999999（金額の下限・上限）
+- 3（メールドメインの最小文字数）
+- 必須ヘッダーのリスト
+- 通知先メールアドレス
+- メールの件名
+- メール本文のテンプレート関数</code></pre>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 4-10 collapsed -->
+      <div class="border border-warm-200 rounded-lg overflow-hidden">
+        <button class="prompt-toggle w-full flex items-center justify-between px-4 py-3 bg-warm-50 hover:bg-warm-100 transition-colors text-left" data-target="prompt-rest">
+          <div class="flex items-center gap-3">
+            <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-navy-700 text-white text-xs font-bold">4-10</span>
+            <span class="font-bold text-sm text-warm-700">CSVパーサー分離 / バリデーション / 変換 / DB操作 / 通知 / オーケストレータ / テスト</span>
+          </div>
+          <svg class="prompt-chevron w-4 h-4 text-warm-400 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+        </button>
+        <div class="prompt-body hidden" id="prompt-rest">
+          <div class="p-4 relative">
+            <button class="copy-btn absolute top-2 right-2 text-xs border border-warm-300 text-warm-600 rounded px-2 py-1" data-copy="prompt-rest-code">Copy</button>
+            <pre class="!rounded-lg !text-xs" id="prompt-rest-code"><code class="language-markdown">Step 4: CSV読み込みとパースを csv-reader.ts に分離。
+  fs依存をここに閉じ込める。ParsedCSV を返す。
+
+Step 5: バリデーションを validator.ts に分離。
+  Zodスキーマで宣言的定義。エラー時はフィールド名+理由を返す。
+
+Step 6: データ変換を transformer.ts に分離。
+  電話番号正規化、年齢計算、メール小文字化。すべて純粋関数。
+
+Step 7: DB操作を2ファイルに分離。
+  duplicate-checker.ts: DatabaseClient インターフェース定義、DI対応。
+  repository.ts: レコード挿入。失敗時は例外スロー。
+
+Step 8: 通知を notifier.ts に分離。
+  MailClient インターフェース定義。constants.ts のテンプレート使用。
+
+Step 9: import-processor.ts をオーケストレータとして書き直し。
+  db と mailer を引数で受け取る。ビジネスロジックは書かない。
+
+Step 10: import-processor.test.ts を vitest で作成。
+  カバー: 正常系、バリデーション、重複、DBエラー、通知、複合ケース。
+  csv-reader はモック化。db/mailer はインターフェース準拠のモック注入。</code></pre>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+</main>
+
+<!-- フッター -->
+<footer class="bg-navy-50 border-t border-navy-100">
+  <div class="max-w-7xl mx-auto px-6 py-8 flex items-center justify-between">
+    <span class="text-warm-500 text-sm">10_refactoring -- AI Dev Demo</span>
+    <a href="../showcase/index.html" class="inline-flex items-center gap-2 bg-navy-800 text-white px-5 py-2.5 rounded-lg hover:bg-navy-900 transition-colors text-sm font-medium">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+      showcase に戻る
+    </a>
+  </div>
+</footer>
+
+<script>
+// タブ切り替え
+document.getElementById('after-tabs').addEventListener('click', (e) => {
+  const btn = e.target.closest('.tab-btn');
+  if (!btn) return;
+  const tabId = btn.dataset.tab;
+
+  document.querySelectorAll('#after-tabs .tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.getElementById(tabId).classList.add('active');
+
+  Prism.highlightAllUnder(document.getElementById(tabId));
+});
+
+// プロンプトアコーディオン
+document.querySelectorAll('.prompt-toggle').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const target = document.getElementById(btn.dataset.target);
+    const chevron = btn.querySelector('.prompt-chevron');
+    const isHidden = target.classList.contains('hidden');
+
+    target.classList.toggle('hidden');
+    chevron.style.transform = isHidden ? 'rotate(180deg)' : '';
+
+    if (isHidden) {
+      Prism.highlightAllUnder(target);
+    }
+  });
+});
+
+// コピーボタン
+document.querySelectorAll('.copy-btn').forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const codeEl = document.getElementById(btn.dataset.copy);
+    const text = codeEl.textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      btn.textContent = 'Copied';
+      btn.classList.add('copied');
+      setTimeout(() => {
+        btn.textContent = 'Copy';
+        btn.classList.remove('copied');
+      }, 1500);
+    });
+  });
+});
+
+// 初期ハイライト
+Prism.highlightAll();
+</script>
+</body>
+</html>

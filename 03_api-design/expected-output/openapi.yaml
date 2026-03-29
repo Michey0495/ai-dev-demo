@@ -1,0 +1,1822 @@
+openapi: 3.0.3
+info:
+  title: TaskFlow API
+  description: |
+    チーム向けタスク管理ツール TaskFlow のバックエンドAPI。
+    プロジェクト単位でタスクを整理し、メンバーへの割り当て、進捗追跡、ラベルによる分類を行う。
+  version: 1.0.0
+  contact:
+    name: TaskFlow Dev Team
+  license:
+    name: MIT
+
+servers:
+  - url: https://api.taskflow.example.com/api/v1
+    description: 本番環境
+  - url: http://localhost:3000/api/v1
+    description: ローカル開発環境
+
+tags:
+  - name: Auth
+    description: 認証・トークン管理
+  - name: Projects
+    description: プロジェクト管理
+  - name: Members
+    description: プロジェクトメンバー管理
+  - name: Tasks
+    description: タスク管理
+  - name: Labels
+    description: ラベル管理
+  - name: Comments
+    description: コメント管理
+
+# ---------------------------------------------------------------------------
+# セキュリティ（グローバル）
+# ---------------------------------------------------------------------------
+security:
+  - BearerAuth: []
+
+# ---------------------------------------------------------------------------
+# パス定義
+# ---------------------------------------------------------------------------
+paths:
+
+  # === 認証 ===
+
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: ユーザー登録
+      description: メールアドレスとパスワードで新規ユーザーを作成する。登録直後にトークンを発行し、即座にログイン状態になる。
+      operationId: registerUser
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterRequest"
+            example:
+              name: "田中太郎"
+              email: "tanaka@example.com"
+              password: "P@ssw0rd123"
+      responses:
+        "201":
+          description: 登録成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleResponse_User"
+              example:
+                data:
+                  id: "550e8400-e29b-41d4-a716-446655440000"
+                  name: "田中太郎"
+                  email: "tanaka@example.com"
+                  createdAt: "2026-03-20T10:00:00Z"
+                  updatedAt: "2026-03-20T10:00:00Z"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: ログイン
+      description: メールアドレスとパスワードで認証し、accessToken と refreshToken を発行する。
+      operationId: loginUser
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+            example:
+              email: "tanaka@example.com"
+              password: "P@ssw0rd123"
+      responses:
+        "200":
+          description: ログイン成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthTokenResponse"
+              example:
+                data:
+                  accessToken: "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..."
+                  refreshToken: "dGhpcyBpcyBhIHJlZnJlc2ggdG9rZW4..."
+                  expiresAt: "2026-03-20T11:00:00Z"
+                  user:
+                    id: "550e8400-e29b-41d4-a716-446655440000"
+                    name: "田中太郎"
+                    email: "tanaka@example.com"
+                    createdAt: "2026-03-20T10:00:00Z"
+                    updatedAt: "2026-03-20T10:00:00Z"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: トークンリフレッシュ
+      description: refreshToken を使って新しい accessToken を取得する。元の refreshToken は無効化される（ローテーション方式）。
+      operationId: refreshToken
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken:
+                  type: string
+                  description: ログイン時に発行された refreshToken
+            example:
+              refreshToken: "dGhpcyBpcyBhIHJlZnJlc2ggdG9rZW4..."
+      responses:
+        "200":
+          description: リフレッシュ成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthTokenResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # === プロジェクト ===
+
+  /projects:
+    get:
+      tags: [Projects]
+      summary: プロジェクト一覧取得
+      description: 自分が参加しているプロジェクトを返す。ステータスで絞り込み可能。
+      operationId: listProjects
+      parameters:
+        - $ref: "#/components/parameters/CursorParam"
+        - $ref: "#/components/parameters/LimitParam"
+        - name: status
+          in: query
+          description: プロジェクトステータスで絞り込み
+          schema:
+            $ref: "#/components/schemas/ProjectStatus"
+      responses:
+        "200":
+          description: 取得成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedResponse_ProjectSummary"
+              example:
+                data:
+                  - id: "550e8400-e29b-41d4-a716-446655440000"
+                    name: "TaskFlow v2 開発"
+                    status: "active"
+                    taskCount: 42
+                    memberCount: 5
+                    createdAt: "2026-03-01T09:00:00Z"
+                    updatedAt: "2026-03-20T15:30:00Z"
+                meta:
+                  nextCursor: "eyJpZCI6IjU1MGU4NDAw..."
+                  hasMore: true
+                  totalCount: 3
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+    post:
+      tags: [Projects]
+      summary: プロジェクト新規作成
+      description: オーナー権限が必要。作成者は自動的にオーナーとしてメンバーに追加される。
+      operationId: createProject
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProjectRequest"
+            example:
+              name: "TaskFlow v2 開発"
+              description: "次期バージョンの開発プロジェクト"
+      responses:
+        "201":
+          description: 作成成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleResponse_Project"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /projects/{projectId}:
+    parameters:
+      - $ref: "#/components/parameters/ProjectIdParam"
+
+    get:
+      tags: [Projects]
+      summary: プロジェクト詳細取得
+      operationId: getProject
+      responses:
+        "200":
+          description: 取得成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleResponse_Project"
+              example:
+                data:
+                  id: "550e8400-e29b-41d4-a716-446655440000"
+                  name: "TaskFlow v2 開発"
+                  description: "次期バージョンの開発プロジェクト"
+                  status: "active"
+                  createdAt: "2026-03-01T09:00:00Z"
+                  updatedAt: "2026-03-20T15:30:00Z"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    patch:
+      tags: [Projects]
+      summary: プロジェクト情報更新
+      description: オーナー権限が必要。部分更新（送信したフィールドのみ変更）。
+      operationId: updateProject
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProjectRequest"
+            example:
+              description: "v2.1 に向けた追加開発"
+      responses:
+        "200":
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleResponse_Project"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /projects/{projectId}/archive:
+    parameters:
+      - $ref: "#/components/parameters/ProjectIdParam"
+
+    post:
+      tags: [Projects]
+      summary: プロジェクトをアーカイブ
+      description: オーナー権限が必要。アーカイブ後もタスクやコメントは閲覧可能。再アクティブ化はPATCH /projects/:id で status を active に戻す。
+      operationId: archiveProject
+      responses:
+        "200":
+          description: アーカイブ成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleResponse_Project"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # === メンバー ===
+
+  /projects/{projectId}/members:
+    parameters:
+      - $ref: "#/components/parameters/ProjectIdParam"
+
+    get:
+      tags: [Members]
+      summary: メンバー一覧取得
+      operationId: listMembers
+      parameters:
+        - $ref: "#/components/parameters/CursorParam"
+        - $ref: "#/components/parameters/LimitParam"
+      responses:
+        "200":
+          description: 取得成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedResponse_Member"
+              example:
+                data:
+                  - userId: "550e8400-e29b-41d4-a716-446655440000"
+                    name: "田中太郎"
+                    email: "tanaka@example.com"
+                    role: "owner"
+                    joinedAt: "2026-03-01T09:00:00Z"
+                  - userId: "660e8400-e29b-41d4-a716-446655440001"
+                    name: "鈴木花子"
+                    email: "suzuki@example.com"
+                    role: "member"
+                    joinedAt: "2026-03-05T14:00:00Z"
+                meta:
+                  nextCursor: null
+                  hasMore: false
+                  totalCount: 2
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    post:
+      tags: [Members]
+      summary: メンバー追加
+      description: オーナー権限が必要。既に参加しているユーザーを追加しようとすると 409 を返す。
+      operationId: addMember
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddMemberRequest"
+            example:
+              userId: "770e8400-e29b-41d4-a716-446655440002"
+              role: "member"
+      responses:
+        "201":
+          description: 追加成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleResponse_Member"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /projects/{projectId}/members/{userId}:
+    parameters:
+      - $ref: "#/components/parameters/ProjectIdParam"
+      - name: userId
+        in: path
+        required: true
+        description: 対象ユーザーのID
+        schema:
+          type: string
+          format: uuid
+          example: "660e8400-e29b-41d4-a716-446655440001"
+
+    patch:
+      tags: [Members]
+      summary: メンバーのロール変更
+      description: オーナー権限が必要。自分自身のロールは変更できない。
+      operationId: updateMemberRole
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role]
+              properties:
+                role:
+                  $ref: "#/components/schemas/MemberRole"
+            example:
+              role: "guest"
+      responses:
+        "200":
+          description: 変更成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleResponse_Member"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      tags: [Members]
+      summary: メンバー削除
+      description: オーナー権限が必要。オーナー自身は削除できない（先にオーナー権限を委譲する必要がある）。
+      operationId: removeMember
+      responses:
+        "204":
+          description: 削除成功
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # === タスク ===
+
+  /projects/{projectId}/tasks:
+    parameters:
+      - $ref: "#/components/parameters/ProjectIdParam"
+
+    get:
+      tags: [Tasks]
+      summary: タスク一覧取得
+      description: フィルタ・ソート対応。複数条件を組み合わせて絞り込める。
+      operationId: listTasks
+      parameters:
+        - $ref: "#/components/parameters/CursorParam"
+        - $ref: "#/components/parameters/LimitParam"
+        - name: status
+          in: query
+          description: ステータスで絞り込み（カンマ区切りで複数指定可）
+          schema:
+            type: string
+            example: "todo,in_progress"
+        - name: priority
+          in: query
+          description: 優先度で絞り込み
+          schema:
+            $ref: "#/components/schemas/TaskPriority"
+        - name: assigneeId
+          in: query
+          description: 担当者IDで絞り込み
+          schema:
+            type: string
+            format: uuid
+        - name: labelIds
+          in: query
+          description: ラベルIDで絞り込み（カンマ区切り、AND条件）
+          schema:
+            type: string
+            example: "550e8400-...,660e8400-..."
+        - name: dueDateFrom
+          in: query
+          description: 期限日の開始（この日以降）
+          schema:
+            type: string
+            format: date
+            example: "2026-03-01"
+        - name: dueDateTo
+          in: query
+          description: 期限日の終了（この日以前）
+          schema:
+            type: string
+            format: date
+            example: "2026-03-31"
+        - name: q
+          in: query
+          description: キーワード検索（タイトル・説明文が対象、部分一致）
+          schema:
+            type: string
+            maxLength: 200
+            example: "ログイン画面"
+        - name: sort
+          in: query
+          description: ソート項目
+          schema:
+            type: string
+            enum: [createdAt, updatedAt, dueDate, priority]
+            default: createdAt
+        - name: order
+          in: query
+          description: ソート順
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        "200":
+          description: 取得成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedResponse_TaskSummary"
+              example:
+                data:
+                  - id: "880e8400-e29b-41d4-a716-446655440010"
+                    title: "ログイン画面のUI実装"
+                    status: "in_progress"
+                    priority: "high"
+                    assignee:
+                      id: "660e8400-e29b-41d4-a716-446655440001"
+                      name: "鈴木花子"
+                    labels:
+                      - id: "990e8400-e29b-41d4-a716-446655440020"
+                        name: "frontend"
+                        color: "#1B3A5C"
+                    dueDate: "2026-03-25"
+                    createdAt: "2026-03-10T09:00:00Z"
+                    updatedAt: "2026-03-20T16:00:00Z"
+                meta:
+                  nextCursor: "eyJpZCI6Ijg4MGU4NDAw..."
+                  hasMore: true
+                  totalCount: 42
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    post:
+      tags: [Tasks]
+      summary: タスク新規作成
+      description: メンバー以上の権限が必要。作成者は自動的に createdBy に設定される。
+      operationId: createTask
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTaskRequest"
+            example:
+              title: "ログイン画面のUI実装"
+              description: "Figma のデザインカンプに基づいて実装する"
+              priority: "high"
+              assigneeId: "660e8400-e29b-41d4-a716-446655440001"
+              labelIds: ["990e8400-e29b-41d4-a716-446655440020"]
+              dueDate: "2026-03-25"
+      responses:
+        "201":
+          description: 作成成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleResponse_Task"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /projects/{projectId}/tasks/{taskId}:
+    parameters:
+      - $ref: "#/components/parameters/ProjectIdParam"
+      - $ref: "#/components/parameters/TaskIdParam"
+
+    get:
+      tags: [Tasks]
+      summary: タスク詳細取得
+      operationId: getTask
+      responses:
+        "200":
+          description: 取得成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleResponse_Task"
+              example:
+                data:
+                  id: "880e8400-e29b-41d4-a716-446655440010"
+                  title: "ログイン画面のUI実装"
+                  description: "Figma のデザインカンプに基づいて実装する"
+                  status: "in_progress"
+                  priority: "high"
+                  assignee:
+                    id: "660e8400-e29b-41d4-a716-446655440001"
+                    name: "鈴木花子"
+                  labels:
+                    - id: "990e8400-e29b-41d4-a716-446655440020"
+                      name: "frontend"
+                      color: "#1B3A5C"
+                  dueDate: "2026-03-25"
+                  createdBy:
+                    id: "550e8400-e29b-41d4-a716-446655440000"
+                    name: "田中太郎"
+                  createdAt: "2026-03-10T09:00:00Z"
+                  updatedAt: "2026-03-20T16:00:00Z"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    patch:
+      tags: [Tasks]
+      summary: タスク情報更新
+      description: メンバー以上の権限が必要。部分更新。ステータスと担当者は専用エンドポイントで変更する。
+      operationId: updateTask
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTaskRequest"
+            example:
+              title: "ログイン画面のUI実装（レスポンシブ対応含む）"
+              priority: "urgent"
+      responses:
+        "200":
+          description: 更新成功（更新後のタスク全体を返す）
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleResponse_Task"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+    delete:
+      tags: [Tasks]
+      summary: タスク削除
+      description: オーナー権限が必要。関連するコメントも同時に削除される。
+      operationId: deleteTask
+      responses:
+        "204":
+          description: 削除成功
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /projects/{projectId}/tasks/{taskId}/status:
+    parameters:
+      - $ref: "#/components/parameters/ProjectIdParam"
+      - $ref: "#/components/parameters/TaskIdParam"
+
+    patch:
+      tags: [Tasks]
+      summary: ステータス変更
+      description: |
+        メンバー以上の権限が必要。仕様書に定義されたステータス遷移ルールに従う。
+        許可されていない遷移を要求すると 409 Conflict を返す。
+
+        遷移ルール:
+        - todo -> in_progress, cancelled
+        - in_progress -> in_review, todo, cancelled
+        - in_review -> done, in_progress
+        - done -> in_progress（差し戻し）
+        - cancelled -> todo（復活）
+      operationId: changeTaskStatus
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  $ref: "#/components/schemas/TaskStatus"
+            example:
+              status: "in_review"
+      responses:
+        "200":
+          description: 変更成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleResponse_Task"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: 許可されていないステータス遷移
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetail"
+              example:
+                type: "https://api.taskflow.example.com/problems/invalid-status-transition"
+                title: "ステータス遷移が許可されていません"
+                status: 409
+                detail: "todo から done への直接遷移はできません。in_progress -> in_review -> done の順に進めてください。"
+                instance: "/api/v1/projects/550e.../tasks/880e.../status"
+
+  /projects/{projectId}/tasks/{taskId}/assignee:
+    parameters:
+      - $ref: "#/components/parameters/ProjectIdParam"
+      - $ref: "#/components/parameters/TaskIdParam"
+
+    put:
+      tags: [Tasks]
+      summary: 担当者を設定
+      description: メンバー以上の権限が必要。指定するユーザーはプロジェクトのメンバーでなければならない。
+      operationId: assignTask
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId]
+              properties:
+                userId:
+                  type: string
+                  format: uuid
+                  description: 担当者のユーザーID
+            example:
+              userId: "660e8400-e29b-41d4-a716-446655440001"
+      responses:
+        "200":
+          description: 設定成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleResponse_Task"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      tags: [Tasks]
+      summary: 担当者を解除
+      description: メンバー以上の権限が必要。タスクの assignee が null になる。
+      operationId: unassignTask
+      responses:
+        "200":
+          description: 解除成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleResponse_Task"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /projects/{projectId}/tasks/{taskId}/labels/{labelId}:
+    parameters:
+      - $ref: "#/components/parameters/ProjectIdParam"
+      - $ref: "#/components/parameters/TaskIdParam"
+      - name: labelId
+        in: path
+        required: true
+        description: 対象ラベルのID
+        schema:
+          type: string
+          format: uuid
+          example: "990e8400-e29b-41d4-a716-446655440020"
+
+    put:
+      tags: [Tasks]
+      summary: タスクにラベルを付与
+      description: メンバー以上の権限が必要。既に付与済みの場合は 204 を返す（べき等）。
+      operationId: addLabelToTask
+      responses:
+        "204":
+          description: 付与成功
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    delete:
+      tags: [Tasks]
+      summary: タスクからラベルを解除
+      description: メンバー以上の権限が必要。
+      operationId: removeLabelFromTask
+      responses:
+        "204":
+          description: 解除成功
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # === ラベル ===
+
+  /projects/{projectId}/labels:
+    parameters:
+      - $ref: "#/components/parameters/ProjectIdParam"
+
+    get:
+      tags: [Labels]
+      summary: ラベル一覧取得
+      operationId: listLabels
+      parameters:
+        - $ref: "#/components/parameters/CursorParam"
+        - $ref: "#/components/parameters/LimitParam"
+      responses:
+        "200":
+          description: 取得成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedResponse_Label"
+              example:
+                data:
+                  - id: "990e8400-e29b-41d4-a716-446655440020"
+                    name: "frontend"
+                    color: "#1B3A5C"
+                    createdAt: "2026-03-01T09:00:00Z"
+                  - id: "990e8400-e29b-41d4-a716-446655440021"
+                    name: "backend"
+                    color: "#5C3A1B"
+                    createdAt: "2026-03-01T09:00:00Z"
+                meta:
+                  nextCursor: null
+                  hasMore: false
+                  totalCount: 2
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    post:
+      tags: [Labels]
+      summary: ラベル新規作成
+      description: メンバー以上の権限が必要。同じプロジェクト内で重複する名前は 409 を返す。
+      operationId: createLabel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateLabelRequest"
+            example:
+              name: "frontend"
+              color: "#1B3A5C"
+      responses:
+        "201":
+          description: 作成成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleResponse_Label"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /projects/{projectId}/labels/{labelId}:
+    parameters:
+      - $ref: "#/components/parameters/ProjectIdParam"
+      - name: labelId
+        in: path
+        required: true
+        description: 対象ラベルのID
+        schema:
+          type: string
+          format: uuid
+          example: "990e8400-e29b-41d4-a716-446655440020"
+
+    patch:
+      tags: [Labels]
+      summary: ラベル情報更新
+      description: メンバー以上の権限が必要。部分更新。
+      operationId: updateLabel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateLabelRequest"
+            example:
+              color: "#2C4A6C"
+      responses:
+        "200":
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleResponse_Label"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+    delete:
+      tags: [Labels]
+      summary: ラベル削除
+      description: オーナー権限が必要。紐づくタスクからも自動的に解除される。
+      operationId: deleteLabel
+      responses:
+        "204":
+          description: 削除成功
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # === コメント ===
+
+  /projects/{projectId}/tasks/{taskId}/comments:
+    parameters:
+      - $ref: "#/components/parameters/ProjectIdParam"
+      - $ref: "#/components/parameters/TaskIdParam"
+
+    get:
+      tags: [Comments]
+      summary: コメント一覧取得
+      description: 投稿日時の昇順で返す。
+      operationId: listComments
+      parameters:
+        - $ref: "#/components/parameters/CursorParam"
+        - $ref: "#/components/parameters/LimitParam"
+      responses:
+        "200":
+          description: 取得成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaginatedResponse_Comment"
+              example:
+                data:
+                  - id: "aa0e8400-e29b-41d4-a716-446655440030"
+                    body: "デザインカンプのリンクを追加しました"
+                    author:
+                      id: "550e8400-e29b-41d4-a716-446655440000"
+                      name: "田中太郎"
+                    createdAt: "2026-03-15T10:30:00Z"
+                    updatedAt: "2026-03-15T10:30:00Z"
+                meta:
+                  nextCursor: null
+                  hasMore: false
+                  totalCount: 1
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    post:
+      tags: [Comments]
+      summary: コメント投稿
+      description: ゲスト以上の権限があれば投稿可能。Markdown記法に対応。
+      operationId: createComment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCommentRequest"
+            example:
+              body: "レスポンシブ対応の方針について相談したいです"
+      responses:
+        "201":
+          description: 投稿成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleResponse_Comment"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /projects/{projectId}/tasks/{taskId}/comments/{commentId}:
+    parameters:
+      - $ref: "#/components/parameters/ProjectIdParam"
+      - $ref: "#/components/parameters/TaskIdParam"
+      - name: commentId
+        in: path
+        required: true
+        description: 対象コメントのID
+        schema:
+          type: string
+          format: uuid
+          example: "aa0e8400-e29b-41d4-a716-446655440030"
+
+    patch:
+      tags: [Comments]
+      summary: コメント編集
+      description: 投稿者本人のみ編集可能。
+      operationId: updateComment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCommentRequest"
+            example:
+              body: "レスポンシブ対応の方針について相談したいです（Figmaリンク追記）"
+      responses:
+        "200":
+          description: 編集成功
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SingleResponse_Comment"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+    delete:
+      tags: [Comments]
+      summary: コメント削除
+      description: 投稿者本人またはオーナーが削除可能。
+      operationId: deleteComment
+      responses:
+        "204":
+          description: 削除成功
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+# ---------------------------------------------------------------------------
+# コンポーネント定義
+# ---------------------------------------------------------------------------
+components:
+
+  # === セキュリティ ===
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: ログインAPIで取得した accessToken を Authorization ヘッダーに指定する
+
+  # === パラメータ ===
+
+  parameters:
+    ProjectIdParam:
+      name: projectId
+      in: path
+      required: true
+      description: プロジェクトID
+      schema:
+        type: string
+        format: uuid
+        example: "550e8400-e29b-41d4-a716-446655440000"
+
+    TaskIdParam:
+      name: taskId
+      in: path
+      required: true
+      description: タスクID
+      schema:
+        type: string
+        format: uuid
+        example: "880e8400-e29b-41d4-a716-446655440010"
+
+    CursorParam:
+      name: cursor
+      in: query
+      description: 次ページの取得に使うカーソル値（前回レスポンスの meta.nextCursor を指定）
+      schema:
+        type: string
+
+    LimitParam:
+      name: limit
+      in: query
+      description: 1ページあたりの取得件数
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+        example: 20
+
+  # === 共通レスポンス ===
+
+  responses:
+    Unauthorized:
+      description: 認証エラー -- トークン未指定、期限切れ、または改ざん検知
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetail"
+          example:
+            type: "https://api.taskflow.example.com/problems/unauthorized"
+            title: "認証が必要です"
+            status: 401
+            detail: "Authorization ヘッダーに有効な Bearer トークンを指定してください"
+
+    Forbidden:
+      description: 権限不足 -- 認証済みだがこの操作に必要なロールを持っていない
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetail"
+          example:
+            type: "https://api.taskflow.example.com/problems/forbidden"
+            title: "権限が不足しています"
+            status: 403
+            detail: "この操作にはオーナー権限が必要です"
+
+    NotFound:
+      description: リソースが見つからない
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetail"
+          example:
+            type: "https://api.taskflow.example.com/problems/not-found"
+            title: "リソースが見つかりません"
+            status: 404
+            detail: "指定されたIDのリソースは存在しないか、アクセス権がありません"
+
+    Conflict:
+      description: リソースの競合 -- 重複登録、不正な遷移など
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetail"
+          example:
+            type: "https://api.taskflow.example.com/problems/conflict"
+            title: "リソースが競合しています"
+            status: 409
+            detail: "このメールアドレスは既に登録されています"
+
+    ValidationError:
+      description: バリデーションエラー -- リクエストボディの値が制約を満たさない
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ValidationProblemDetail"
+          example:
+            type: "https://api.taskflow.example.com/problems/validation-error"
+            title: "入力値が不正です"
+            status: 422
+            detail: "リクエストに 2 件のバリデーションエラーがあります"
+            errors:
+              - field: "title"
+                message: "200文字以内で入力してください"
+                code: "max_length"
+              - field: "email"
+                message: "有効なメールアドレスを入力してください"
+                code: "invalid_format"
+
+    TooManyRequests:
+      description: レートリミット超過
+      headers:
+        Retry-After:
+          description: 再試行可能になるまでの秒数
+          schema:
+            type: integer
+            example: 60
+        X-RateLimit-Limit:
+          description: 時間枠あたりの上限リクエスト数
+          schema:
+            type: integer
+            example: 1000
+        X-RateLimit-Remaining:
+          description: 残りリクエスト数
+          schema:
+            type: integer
+            example: 0
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ProblemDetail"
+          example:
+            type: "https://api.taskflow.example.com/problems/too-many-requests"
+            title: "リクエスト数の上限に達しました"
+            status: 429
+            detail: "1分あたり1000リクエストが上限です。60秒後に再試行してください"
+
+  # === スキーマ ===
+
+  schemas:
+
+    # --- 認証 ---
+
+    RegisterRequest:
+      type: object
+      required: [name, email, password]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: ユーザー表示名
+        email:
+          type: string
+          format: email
+          description: ログインに使用するメールアドレス
+        password:
+          type: string
+          minLength: 8
+          maxLength: 128
+          description: パスワード（8文字以上128文字以下）
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    AuthTokenResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          required: [accessToken, refreshToken, expiresAt, user]
+          properties:
+            accessToken:
+              type: string
+              description: API呼び出しに使用するJWTトークン
+            refreshToken:
+              type: string
+              description: accessToken の更新に使用するトークン
+            expiresAt:
+              type: string
+              format: date-time
+              description: accessToken の有効期限（UTC）
+            user:
+              $ref: "#/components/schemas/User"
+
+    # --- ユーザー ---
+
+    User:
+      type: object
+      required: [id, name, email, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    # --- プロジェクト ---
+
+    ProjectStatus:
+      type: string
+      enum: [active, archived]
+      description: "active: 稼働中, archived: アーカイブ済み"
+
+    ProjectSummary:
+      type: object
+      description: 一覧表示用のプロジェクト概要
+      required: [id, name, status, taskCount, memberCount, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        status:
+          $ref: "#/components/schemas/ProjectStatus"
+        taskCount:
+          type: integer
+          minimum: 0
+          description: プロジェクト内のタスク数
+        memberCount:
+          type: integer
+          minimum: 0
+          description: メンバー数
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Project:
+      type: object
+      description: プロジェクト詳細
+      required: [id, name, status, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        status:
+          $ref: "#/components/schemas/ProjectStatus"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateProjectRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: プロジェクト名
+        description:
+          type: string
+          maxLength: 1000
+          description: プロジェクトの説明文
+
+    UpdateProjectRequest:
+      type: object
+      description: 送信したフィールドのみ更新される
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        description:
+          type: string
+          maxLength: 1000
+
+    # --- メンバー ---
+
+    MemberRole:
+      type: string
+      enum: [owner, member, guest]
+      description: "owner: 全操作可能, member: タスクCRUD+ラベル管理, guest: 閲覧のみ"
+
+    Member:
+      type: object
+      required: [userId, name, email, role, joinedAt]
+      properties:
+        userId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          $ref: "#/components/schemas/MemberRole"
+        joinedAt:
+          type: string
+          format: date-time
+
+    AddMemberRequest:
+      type: object
+      required: [userId, role]
+      properties:
+        userId:
+          type: string
+          format: uuid
+          description: 追加するユーザーのID
+        role:
+          $ref: "#/components/schemas/MemberRole"
+
+    # --- タスク ---
+
+    TaskStatus:
+      type: string
+      enum: [todo, in_progress, in_review, done, cancelled]
+      description: |
+        todo: 未着手
+        in_progress: 作業中
+        in_review: レビュー待ち
+        done: 完了
+        cancelled: キャンセル
+
+    TaskPriority:
+      type: string
+      enum: [low, medium, high, urgent]
+      description: |
+        low: 低
+        medium: 中（デフォルト）
+        high: 高
+        urgent: 緊急
+
+    TaskSummary:
+      type: object
+      description: 一覧表示用のタスク概要
+      required: [id, title, status, priority, labels, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        status:
+          $ref: "#/components/schemas/TaskStatus"
+        priority:
+          $ref: "#/components/schemas/TaskPriority"
+        assignee:
+          $ref: "#/components/schemas/UserReference"
+        labels:
+          type: array
+          items:
+            $ref: "#/components/schemas/LabelReference"
+        dueDate:
+          type: string
+          format: date
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    Task:
+      type: object
+      description: タスク詳細
+      required: [id, title, status, priority, labels, createdBy, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+          description: Markdown記法に対応
+        status:
+          $ref: "#/components/schemas/TaskStatus"
+        priority:
+          $ref: "#/components/schemas/TaskPriority"
+        assignee:
+          $ref: "#/components/schemas/UserReference"
+        labels:
+          type: array
+          items:
+            $ref: "#/components/schemas/LabelReference"
+        dueDate:
+          type: string
+          format: date
+          nullable: true
+        createdBy:
+          $ref: "#/components/schemas/UserReference"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    UserReference:
+      type: object
+      nullable: true
+      description: ユーザーへの参照（ID+名前のみ）
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+
+    LabelReference:
+      type: object
+      description: ラベルへの参照（ID+名前+色）
+      required: [id, name, color]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        color:
+          type: string
+          pattern: "^#[0-9a-fA-F]{6}$"
+          description: HEXカラーコード
+
+    CreateTaskRequest:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: タスクのタイトル
+        description:
+          type: string
+          maxLength: 5000
+          description: タスクの説明文（Markdown対応）
+        priority:
+          $ref: "#/components/schemas/TaskPriority"
+        assigneeId:
+          type: string
+          format: uuid
+          description: 担当者のユーザーID（プロジェクトメンバーに限る）
+        labelIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 20
+          description: 付与するラベルのID一覧
+        dueDate:
+          type: string
+          format: date
+          description: 期限日（YYYY-MM-DD）
+
+    UpdateTaskRequest:
+      type: object
+      description: 送信したフィールドのみ更新される。ステータスと担当者は専用エンドポイントで変更する。
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 5000
+        priority:
+          $ref: "#/components/schemas/TaskPriority"
+        dueDate:
+          type: string
+          format: date
+          nullable: true
+          description: null を指定すると期限日をクリアする
+
+    # --- ラベル ---
+
+    Label:
+      type: object
+      required: [id, name, color, createdAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        color:
+          type: string
+          pattern: "^#[0-9a-fA-F]{6}$"
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateLabelRequest:
+      type: object
+      required: [name, color]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 50
+          description: ラベル名（プロジェクト内で一意）
+        color:
+          type: string
+          pattern: "^#[0-9a-fA-F]{6}$"
+          description: HEXカラーコード
+
+    UpdateLabelRequest:
+      type: object
+      description: 送信したフィールドのみ更新される
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 50
+        color:
+          type: string
+          pattern: "^#[0-9a-fA-F]{6}$"
+
+    # --- コメント ---
+
+    Comment:
+      type: object
+      required: [id, body, author, createdAt, updatedAt]
+      properties:
+        id:
+          type: string
+          format: uuid
+        body:
+          type: string
+          description: コメント本文（Markdown対応）
+        author:
+          $ref: "#/components/schemas/UserReference"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateCommentRequest:
+      type: object
+      required: [body]
+      properties:
+        body:
+          type: string
+          minLength: 1
+          maxLength: 2000
+          description: コメント本文（Markdown対応）
+
+    UpdateCommentRequest:
+      type: object
+      required: [body]
+      properties:
+        body:
+          type: string
+          minLength: 1
+          maxLength: 2000
+
+    # --- 共通: ページネーション ---
+
+    PaginationMeta:
+      type: object
+      description: カーソルベースページネーションのメタ情報
+      required: [nextCursor, hasMore, totalCount]
+      properties:
+        nextCursor:
+          type: string
+          nullable: true
+          description: 次ページのカーソル値。null なら最終ページ
+        hasMore:
+          type: boolean
+          description: 次ページが存在するか
+        totalCount:
+          type: integer
+          minimum: 0
+          description: 条件に合致する全件数
+
+    # --- 共通: レスポンスエンベロープ ---
+
+    SingleResponse_User:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/User"
+
+    SingleResponse_Project:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/Project"
+
+    SingleResponse_Member:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/Member"
+
+    SingleResponse_Task:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/Task"
+
+    SingleResponse_Label:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/Label"
+
+    SingleResponse_Comment:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: "#/components/schemas/Comment"
+
+    PaginatedResponse_ProjectSummary:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProjectSummary"
+        meta:
+          $ref: "#/components/schemas/PaginationMeta"
+
+    PaginatedResponse_Member:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Member"
+        meta:
+          $ref: "#/components/schemas/PaginationMeta"
+
+    PaginatedResponse_TaskSummary:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/TaskSummary"
+        meta:
+          $ref: "#/components/schemas/PaginationMeta"
+
+    PaginatedResponse_Label:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Label"
+        meta:
+          $ref: "#/components/schemas/PaginationMeta"
+
+    PaginatedResponse_Comment:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Comment"
+        meta:
+          $ref: "#/components/schemas/PaginationMeta"
+
+    # --- 共通: エラー（RFC 7807 Problem Details） ---
+
+    ProblemDetail:
+      type: object
+      description: |
+        RFC 7807 準拠のエラーレスポンス。
+        type フィールドでエラーの種類を機械的に判別し、detail フィールドで人間向けの説明を返す。
+      required: [type, title, status]
+      properties:
+        type:
+          type: string
+          format: uri
+          description: エラー種別を識別するURI
+          example: "https://api.taskflow.example.com/problems/not-found"
+        title:
+          type: string
+          description: エラーの概要（人間が読む用）
+          example: "リソースが見つかりません"
+        status:
+          type: integer
+          description: HTTPステータスコード
+          minimum: 400
+          maximum: 599
+          example: 404
+        detail:
+          type: string
+          description: エラーの詳細説明
+          example: "タスク ID: 550e8400-e29b-41d4-a716-446655440000 は存在しません"
+        instance:
+          type: string
+          format: uri
+          description: このエラーが発生したリクエストのパス
+          example: "/api/v1/projects/550e.../tasks/880e..."
+
+    ValidationProblemDetail:
+      allOf:
+        - $ref: "#/components/schemas/ProblemDetail"
+        - type: object
+          required: [errors]
+          properties:
+            errors:
+              type: array
+              description: フィールドごとのバリデーションエラー
+              items:
+                type: object
+                required: [field, message, code]
+                properties:
+                  field:
+                    type: string
+                    description: エラーが発生したフィールドのパス
+                    example: "title"
+                  message:
+                    type: string
+                    description: 人間向けのエラーメッセージ
+                    example: "200文字以内で入力してください"
+                  code:
+                    type: string
+                    description: 機械判別用のエラーコード
+                    example: "max_length"

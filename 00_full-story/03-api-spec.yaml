@@ -1,0 +1,642 @@
+openapi: 3.0.3
+info:
+  title: TeamTalk API
+  description: 社内チャットアプリ TeamTalk の REST API 仕様
+  version: 1.0.0
+
+servers:
+  - url: https://api.teamtalk.example.com/v1
+    description: Production
+
+security:
+  - BearerAuth: []
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        display_name:
+          type: string
+          maxLength: 100
+        avatar_url:
+          type: string
+          nullable: true
+        status_message:
+          type: string
+          maxLength: 200
+        presence:
+          type: string
+          enum: [online, offline, away]
+        role:
+          type: string
+          enum: [admin, member, guest]
+        created_at:
+          type: string
+          format: date-time
+
+    Channel:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          maxLength: 80
+        description:
+          type: string
+        type:
+          type: string
+          enum: [public, private, dm, group_dm]
+        created_by:
+          type: string
+          format: uuid
+        is_archived:
+          type: boolean
+        member_count:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+
+    Message:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        channel_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        content:
+          type: string
+        thread_id:
+          type: string
+          format: uuid
+          nullable: true
+        is_edited:
+          type: boolean
+        attachments:
+          type: array
+          items:
+            $ref: '#/components/schemas/Attachment'
+        reactions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Reaction'
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Attachment:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        file_name:
+          type: string
+        file_size:
+          type: integer
+        mime_type:
+          type: string
+        url:
+          type: string
+
+    Reaction:
+      type: object
+      properties:
+        emoji:
+          type: string
+        count:
+          type: integer
+        users:
+          type: array
+          items:
+            type: string
+            format: uuid
+
+    CreateMessageRequest:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 4000
+        thread_id:
+          type: string
+          format: uuid
+          nullable: true
+
+    UpdateMessageRequest:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 4000
+
+    PaginatedMessages:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Message'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    Pagination:
+      type: object
+      properties:
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+        has_more:
+          type: boolean
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            details:
+              type: object
+
+paths:
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: ログイン
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  minLength: 8
+      responses:
+        '200':
+          description: ログイン成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token:
+                    type: string
+                  refresh_token:
+                    type: string
+                  expires_in:
+                    type: integer
+        '401':
+          description: 認証失敗
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: トークンリフレッシュ
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refresh_token]
+              properties:
+                refresh_token:
+                  type: string
+      responses:
+        '200':
+          description: リフレッシュ成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  access_token:
+                    type: string
+                  expires_in:
+                    type: integer
+
+  /users/me:
+    get:
+      tags: [Users]
+      summary: 自分のプロフィール取得
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+    patch:
+      tags: [Users]
+      summary: プロフィール更新
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                display_name:
+                  type: string
+                  maxLength: 100
+                status_message:
+                  type: string
+                  maxLength: 200
+                presence:
+                  type: string
+                  enum: [online, away]
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  /channels:
+    get:
+      tags: [Channels]
+      summary: チャンネル一覧取得
+      parameters:
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [public, private, dm, group_dm]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            maximum: 100
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Channel'
+                  pagination:
+                    $ref: '#/components/schemas/Pagination'
+
+    post:
+      tags: [Channels]
+      summary: チャンネル作成
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, type]
+              properties:
+                name:
+                  type: string
+                  maxLength: 80
+                description:
+                  type: string
+                type:
+                  type: string
+                  enum: [public, private]
+                member_ids:
+                  type: array
+                  items:
+                    type: string
+                    format: uuid
+      responses:
+        '201':
+          description: 作成成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Channel'
+        '400':
+          description: バリデーションエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /channels/{channelId}/messages:
+    get:
+      tags: [Messages]
+      summary: メッセージ一覧取得
+      parameters:
+        - name: channelId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 50
+            maximum: 100
+        - name: before
+          in: query
+          description: このメッセージIDより前を取得（カーソルページネーション）
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: 成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedMessages'
+        '403':
+          description: チャンネルへのアクセス権なし
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: チャンネルが存在しない
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    post:
+      tags: [Messages]
+      summary: メッセージ送信
+      parameters:
+        - name: channelId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMessageRequest'
+      responses:
+        '201':
+          description: 送信成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '400':
+          description: バリデーションエラー
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 投稿権限なし
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /channels/{channelId}/messages/{messageId}:
+    patch:
+      tags: [Messages]
+      summary: メッセージ編集
+      parameters:
+        - name: channelId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMessageRequest'
+      responses:
+        '200':
+          description: 編集成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Message'
+        '403':
+          description: 他人のメッセージは編集不可
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '410':
+          description: 編集可能時間（5分）を超過
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      tags: [Messages]
+      summary: メッセージ削除（論理削除）
+      parameters:
+        - name: channelId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: 削除成功
+        '403':
+          description: 削除権限なし
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /channels/{channelId}/messages/{messageId}/reactions:
+    post:
+      tags: [Reactions]
+      summary: リアクション追加
+      parameters:
+        - name: channelId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [emoji]
+              properties:
+                emoji:
+                  type: string
+                  maxLength: 50
+      responses:
+        '201':
+          description: 追加成功
+        '409':
+          description: 同じリアクション済み
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      tags: [Reactions]
+      summary: リアクション削除
+      parameters:
+        - name: channelId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: messageId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: emoji
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: 削除成功
+
+  /search:
+    get:
+      tags: [Search]
+      summary: メッセージ全文検索
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 2
+        - name: channel_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: user_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 50
+        - name: offset
+          in: query
+          schema:
+            type: integer
+            default: 0
+      responses:
+        '200':
+          description: 検索結果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedMessages'
+        '400':
+          description: 検索クエリが短すぎる
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'

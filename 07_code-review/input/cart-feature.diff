@@ -1,0 +1,269 @@
+diff --git a/src/cart/types.ts b/src/cart/types.ts
+new file mode 100644
+index 0000000..a3b7c12
+--- /dev/null
++++ b/src/cart/types.ts
+@@ -0,0 +1,28 @@
++export interface CartItem {
++  productId: string
++  quantity: number
++  price: number
++  name: string
++  note?: string
++}
++
++export interface Cart {
++  id: string
++  userId: string
++  items: CartItem[]
++  updatedAt: Date
++}
++
++export interface CartSummary {
++  totalItems: number
++  subtotal: number
++  tax: number
++  total: number
++}
++
++export interface AddItemRequest {
++  productId: string
++  quantity: number
++  note?: string
++}
++
+diff --git a/src/cart/cart-service.ts b/src/cart/cart-service.ts
+new file mode 100644
+index 0000000..e5d2f18
+--- /dev/null
++++ b/src/cart/cart-service.ts
+@@ -0,0 +1,105 @@
++import { prisma } from '../lib/prisma'
++import { Cart, CartItem, CartSummary, AddItemRequest } from './types'
++
++const TAX_RATE = 0.1
++
++export async function addItem(userId: string, request: AddItemRequest) {
++  const cart = await prisma.cart.findFirst({
++    where: { userId },
++    include: { items: true },
++  })
++
++  if (!cart) {
++    const newCart = await prisma.cart.create({
++      data: {
++        userId,
++        items: {
++          create: {
++            productId: request.productId,
++            quantity: request.quantity,
++            note: request.note,
++          },
++        },
++      },
++    })
++    return newCart
++  }
++
++  const existingItem = cart.items.find(
++    (item: any) => item.productId === request.productId
++  )
++
++  if (existingItem) {
++    await prisma.cartItem.update({
++      where: { id: existingItem.id },
++      data: { quantity: existingItem.quantity + request.quantity },
++    })
++  } else {
++    await prisma.cartItem.create({
++      data: {
++        cartId: cart.id,
++        productId: request.productId,
++        quantity: request.quantity,
++        note: request.note,
++      },
++    })
++  }
++
++  const updatedCart = await prisma.cart.findFirst({
++    where: { userId },
++    include: { items: true },
++  })
++
++  return updatedCart
++}
++
++export async function getCartWithDetails(userId: string) {
++  const cart = await prisma.cart.findFirst({
++    where: { userId },
++    include: { items: true },
++  })
++
++  if (!cart) return null
++
++  const itemsWithDetails = []
++  for (const item of cart.items) {
++    const product = await prisma.product.findUnique({
++      where: { id: item.productId },
++    })
++    itemsWithDetails.push({
++      ...item,
++      name: product.name,
++      price: product.price,
++      imageUrl: product.imageUrl,
++    })
++  }
++
++  return { ...cart, items: itemsWithDetails }
++}
++
++export function calculateSummary(items: any[]): CartSummary {
++  let subtotal = 0
++  for (const item of items) {
++    subtotal += item.price * item.quantity
++  }
++  const tax = Math.round(subtotal * TAX_RATE)
++  return {
++    totalItems: items.reduce((sum: any, item: any) => sum + item.quantity, 0),
++    subtotal,
++    tax,
++    total: subtotal + tax,
++  }
++}
++
++export async function removeItem(userId: string, productId: string) {
++  const cart = await prisma.cart.findFirst({
++    where: { userId },
++    include: { items: true },
++  })
++
++  const item = cart.items.find((i: any) => i.productId === productId)
++  if (item) {
++    await prisma.cartItem.delete({ where: { id: item.id } })
++  }
++
++  return await prisma.cart.findFirst({
++    where: { userId },
++    include: { items: true },
++  })
++}
++
++function formatCurrency(amount: number): string {
++  return `¥${amount.toLocaleString()}`
++}
++
+diff --git a/src/cart/cart-router.ts b/src/cart/cart-router.ts
+new file mode 100644
+index 0000000..f8c3a21
+--- /dev/null
++++ b/src/cart/cart-router.ts
+@@ -0,0 +1,42 @@
++import { Router } from 'express'
++import { addItem, getCartWithDetails, removeItem, calculateSummary } from './cart-service'
++
++const router = Router()
++
++router.post('/cart/items', async (req, res) => {
++  try {
++    const userId = req.session.userId
++    const result = await addItem(userId, req.body)
++    res.json(result)
++  } catch (error) {
++    res.status(500).json({ error: 'カートの更新に失敗しました' })
++  }
++})
++
++router.get('/cart', async (req, res) => {
++  try {
++    const userId = req.session.userId
++    const cart = await getCartWithDetails(userId)
++    if (!cart) {
++      return res.json({ items: [], summary: { totalItems: 0, subtotal: 0, tax: 0, total: 0 } })
++    }
++    const summary = calculateSummary(cart.items)
++    res.json({ items: cart.items, summary })
++  } catch (error) {
++    res.status(500).json({ error: 'カートの取得に失敗しました' })
++  }
++})
++
++router.delete('/cart/items/:productId', async (req, res) => {
++  try {
++    const userId = req.session.userId
++    const result = await removeItem(userId, req.params.productId)
++    res.json(result)
++  } catch (error) {
++    res.status(500).json({ error: 'アイテムの削除に失敗しました' })
++  }
++})
++
++router.get('/cart/debug', async (req, res) => {
++  const allCarts = await prisma.cart.findMany({ include: { items: true } })
++  res.json(allCarts)
++})
++
++export default router
++
+diff --git a/src/components/CartItemCard.tsx b/src/components/CartItemCard.tsx
+new file mode 100644
+index 0000000..d91e8b7
+--- /dev/null
++++ b/src/components/CartItemCard.tsx
+@@ -0,0 +1,52 @@
++import React from 'react'
++
++interface CartItemCardProps {
++  item: {
++    productId: string
++    name: string
++    price: number
++    quantity: number
++    note?: string
++    imageUrl?: string
++  }
++  onRemove: (productId: string) => void
++  onUpdateQuantity: (productId: string, quantity: number) => void
++}
++
++export function CartItemCard({ item, onRemove, onUpdateQuantity }: CartItemCardProps) {
++  const handleQuantityChange = (delta: number) => {
++    const newQuantity = item.quantity + delta
++    if (newQuantity <= 0) {
++      onRemove(item.productId)
++      return
++    }
++    if (newQuantity > 99) return
++    onUpdateQuantity(item.productId, newQuantity)
++  }
++
++  return (
++    <div className="cart-item-card">
++      {item.imageUrl && (
++        <img src={item.imageUrl} alt={item.name} className="cart-item-image" />
++      )}
++      <div className="cart-item-info">
++        <h3 className="cart-item-name">{item.name}</h3>
++        {item.note && (
++          <div
++            className="cart-item-note"
++            dangerouslySetInnerHTML={{ __html: item.note }}
++          />
++        )}
++        <p className="cart-item-price">
++          ¥{(item.price * item.quantity).toLocaleString()}
++        </p>
++      </div>
++      <div className="cart-item-actions">
++        <button onClick={() => handleQuantityChange(-1)}>-</button>
++        <span>{item.quantity}</span>
++        <button onClick={() => handleQuantityChange(1)}>+</button>
++      </div>
++      <button
++        className="cart-item-remove"
++        onClick={() => onRemove(item.productId)}
++      >
++        削除
++      </button>
++    </div>
++  )
++}

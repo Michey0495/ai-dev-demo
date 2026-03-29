@@ -1,0 +1,1102 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>12 - ドキュメント生成 | AI開発デモ</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-json.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-markdown.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-bash.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-yaml.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-typescript.min.js"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        navy: {
+          50: '#f0f3f7',
+          100: '#dce3ed',
+          200: '#b8c7db',
+          300: '#8fa5c4',
+          400: '#6b83ad',
+          500: '#4a6590',
+          600: '#1e3a5f',
+          700: '#192f4d',
+          800: '#13243b',
+          900: '#0e1929',
+        },
+        warm: {
+          50: '#f9fafb',
+          100: '#f3f4f6',
+          200: '#e5e7eb',
+          300: '#d1d5db',
+          400: '#9ca3af',
+          500: '#6b7280',
+          600: '#4b5563',
+          700: '#374151',
+          800: '#1f2937',
+        },
+      }
+    }
+  }
+}
+</script>
+<style>
+  html { scroll-behavior: smooth; }
+  body { font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif; }
+
+  .code-scroll { max-height: 480px; overflow-y: auto; }
+  .code-scroll::-webkit-scrollbar { width: 6px; }
+  .code-scroll::-webkit-scrollbar-track { background: #1e1e2e; border-radius: 3px; }
+  .code-scroll::-webkit-scrollbar-thumb { background: #4a4a6a; border-radius: 3px; }
+
+  pre[class*="language-"] { margin: 0; border-radius: 0 0 8px 8px; font-size: 13px; line-height: 1.6; }
+  code[class*="language-"] { font-family: 'SF Mono', 'Fira Code', 'Fira Mono', Menlo, Consolas, monospace; }
+
+  .annotation {
+    position: relative;
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    line-height: 1.6;
+  }
+  .annotation-problem {
+    background: #fef2f2;
+    color: #991b1b;
+    border-left: 3px solid #dc2626;
+  }
+  .annotation-good {
+    background: #eff6ff;
+    color: #1e3a5f;
+    border-left: 3px solid #1e3a5f;
+  }
+
+  .tab-btn { transition: all 0.2s ease; }
+  .tab-btn.active {
+    border-bottom: 3px solid #1e3a5f;
+    color: #1e3a5f;
+    font-weight: 700;
+  }
+  .tab-btn:not(.active) {
+    border-bottom: 3px solid transparent;
+    color: #6b7280;
+  }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  .fade-in {
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+  }
+  .fade-in.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .stat-number {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: 'tnum';
+  }
+
+  .copy-btn {
+    transition: all 0.15s ease;
+  }
+  .copy-btn:hover {
+    background: #1e3a5f;
+    color: #fff;
+  }
+  .copy-btn.copied {
+    background: #059669;
+    color: #fff;
+  }
+</style>
+</head>
+<body class="bg-white text-warm-800">
+
+<!-- Header -->
+<header class="bg-navy-600 text-white">
+  <div class="max-w-7xl mx-auto px-6 py-5 flex items-center justify-between">
+    <div class="flex items-center gap-4">
+      <span class="text-sm font-mono bg-navy-700 px-3 py-1 rounded">12</span>
+      <div>
+        <h1 class="text-xl font-bold tracking-tight">ドキュメント生成</h1>
+        <p class="text-navy-200 text-sm mt-0.5">コードからドキュメントを自動生成</p>
+      </div>
+    </div>
+    <a href="../showcase/index.html" class="text-sm text-navy-200 hover:text-white border border-navy-400 hover:border-white px-4 py-2 rounded transition-colors">
+      Showcase に戻る
+    </a>
+  </div>
+</header>
+
+<!-- Hero Stats -->
+<section class="border-b border-warm-200 bg-warm-50">
+  <div class="max-w-7xl mx-auto px-6 py-8">
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+      <div class="text-center">
+        <div class="stat-number text-3xl font-bold text-navy-600">750+</div>
+        <div class="text-sm text-warm-500 mt-1">行のソースコード</div>
+      </div>
+      <div class="text-center">
+        <div class="stat-number text-3xl font-bold text-navy-600">5</div>
+        <div class="text-sm text-warm-500 mt-1">生成ドキュメント</div>
+      </div>
+      <div class="text-center">
+        <div class="stat-number text-3xl font-bold text-navy-600">20</div>
+        <div class="text-sm text-warm-500 mt-1">APIエンドポイント</div>
+      </div>
+      <div class="text-center">
+        <div class="stat-number text-3xl font-bold text-navy-600">1</div>
+        <div class="text-sm text-warm-500 mt-1">プロンプトで完結</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Overview -->
+<section class="max-w-7xl mx-auto px-6 py-12 fade-in">
+  <p class="text-warm-600 text-base leading-relaxed max-w-3xl">
+    TypeScript製のEC REST APIが13ファイル、約750行ある。コードの品質は高いが、ドキュメントは一切ない。
+    人手で書くと抜け漏れだらけの仕様書が1本できるのが精一杯。AIに任せると、1回のプロンプトで5種類の高品質なドキュメントが揃う。
+  </p>
+</section>
+
+<!-- Before / After Comparison -->
+<section class="max-w-7xl mx-auto px-6 pb-16 fade-in">
+  <h2 class="text-lg font-bold text-navy-600 mb-6 pb-2 border-b-2 border-navy-600 inline-block">Before / After 比較</h2>
+
+  <div class="grid lg:grid-cols-2 gap-6 mt-8">
+
+    <!-- BEFORE Panel -->
+    <div class="border border-warm-300 rounded-lg overflow-hidden">
+      <div class="bg-warm-100 px-5 py-3 flex items-center justify-between">
+        <div>
+          <span class="text-xs font-mono text-warm-500 uppercase tracking-wider">Before</span>
+          <span class="ml-2 text-sm font-semibold text-warm-700">人手で書いた API 仕様書</span>
+        </div>
+        <span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded font-medium">1ファイルのみ</span>
+      </div>
+      <div class="code-scroll bg-[#1e1e2e] relative">
+<pre><code class="language-markdown"># API仕様書
+
+最終更新: 2025年9月（たぶん）
+作成者: 田中
+
+## 商品
+
+### 商品一覧
+GET /api/products
+
+パラメータ:
+- page ... ページ番号
+- limit ... 件数
+- category ... カテゴリで絞り込む
+- sort ... ソート（name, price, created_at）
+- keyword ... キーワード検索
+
+レスポンス: 200
+
+```json
+{
+  "products": [...],
+  "count": 100
+}
+```
+
+### 商品作成
+
+POST /api/products
+
+リクエストボディ:
+- name (string) 商品名
+- price (number) 金額
+- stock (number) 在庫
+- category (string) カテゴリ名
+- tags (string[]) タグ
+
+レスポンス: 200
+
+※要認証
+
+
+## 注文
+
+### 注文作成
+
+POST /api/orders
+
+リクエストボディ:
+- products: 商品IDの配列
+- address: 配送先
+
+レスポンス: 200
+
+```
+{
+  orderId: "xxx",
+  status: "new",
+  total: 1500
+}
+```
+
+### 注文一覧
+
+GET /api/orders
+
+パラメータ: page, limit
+
+レスポンス: 200
+
+一覧が返る。自分の注文だけが見えるはず。
+
+
+## カテゴリ
+
+※カテゴリAPIはまだ仕様が固まっていないので省略。
+CRUDがあるとのこと
+
+
+---
+
+## 認証周り
+
+ログインとか登録のAPIがある。JWT使ってるっぽい。
+ヘッダーに Authorization: Bearer xxxx をつける。
+
+### ログイン
+
+POST /api/auth/login
+
+```
+{
+  email: "...",
+  pass: "..."
+}
+```
+
+レスポンス: 200
+
+アクセストークンが返る（多分refreshTokenも）
+
+
+---
+
+## TODO
+- [ ] エラーレスポンスの形式をまとめる
+- [ ] ステータスコード一覧をつくる
+- [ ] PATCH /api/orders/:id/status のステータス遷移を書く
+- [ ] DELETE /api/products/:id を追記
+- [ ] GET /api/products/:id を追記
+- [ ] GET /api/orders/:id を追記
+- [ ] 登録APIを追記
+- [ ] リフレッシュトークンのAPIを追記
+- [ ] GET /api/auth/me を追記
+- [ ] 注文キャンセルAPIを追記
+- [ ] レート制限について書く
+- [ ] 環境変数の一覧は別ファイルに切り出す
+
+---
+
+メモ: 在庫管理のロジックが変わったかも。
+前は在庫チェックなかったけど今はあるっぽい。要確認。
+メモ2: カテゴリにslugが追加されたらしい
+メモ3: 管理者ロール周りの挙動が不明。
+商品作成にadmin権限が必要になった？</code></pre>
+      </div>
+      <!-- Before Annotations -->
+      <div class="bg-white px-5 py-4 space-y-2 border-t border-warm-200">
+        <div class="annotation annotation-problem">20エンドポイント中5つしかカバーしていない</div>
+        <div class="annotation annotation-problem">フィールド名が間違っている（pass, keyword, products, address）</div>
+        <div class="annotation annotation-problem">ステータスコードが全て200 -- POST成功は201が正しい</div>
+        <div class="annotation annotation-problem">レスポンスのJSON構造が実装と異なる（products/count vs data/meta）</div>
+        <div class="annotation annotation-problem">認証・ロール制御の説明が「〜っぽい」で終わっている</div>
+        <div class="annotation annotation-problem">TODOが12個、個人メモが3件残存</div>
+        <div class="annotation annotation-problem">エラーレスポンス、環境変数、デプロイ手順、アーキテクチャ -- 全て未着手</div>
+      </div>
+    </div>
+
+    <!-- AFTER Panel -->
+    <div class="border border-navy-300 rounded-lg overflow-hidden">
+      <div class="bg-navy-50 px-5 py-3 flex items-center justify-between">
+        <div>
+          <span class="text-xs font-mono text-navy-400 uppercase tracking-wider">After</span>
+          <span class="ml-2 text-sm font-semibold text-navy-700">AI生成ドキュメント</span>
+        </div>
+        <span class="text-xs bg-navy-100 text-navy-700 px-2 py-0.5 rounded font-medium">5ファイル</span>
+      </div>
+
+      <!-- After: Tab navigation -->
+      <div class="flex border-b border-warm-200 bg-white overflow-x-auto">
+        <button class="tab-btn active px-4 py-2.5 text-sm whitespace-nowrap" data-tab="after-api">API Reference</button>
+        <button class="tab-btn px-4 py-2.5 text-sm whitespace-nowrap" data-tab="after-readme">README</button>
+        <button class="tab-btn px-4 py-2.5 text-sm whitespace-nowrap" data-tab="after-arch">Architecture</button>
+        <button class="tab-btn px-4 py-2.5 text-sm whitespace-nowrap" data-tab="after-env">Env Vars</button>
+        <button class="tab-btn px-4 py-2.5 text-sm whitespace-nowrap" data-tab="after-deploy">Deploy</button>
+      </div>
+
+      <!-- Tab: API Reference -->
+      <div id="after-api" class="tab-content active">
+        <div class="code-scroll bg-[#1e1e2e]">
+<pre><code class="language-markdown"># APIリファレンス
+
+ベースURL: `http://localhost:4000`
+
+## エンドポイント一覧
+
+| メソッド | パス | 説明 | 認証 | ロール |
+|---------|------|------|------|--------|
+| POST | /api/auth/register | ユーザー登録 | 不要 | - |
+| POST | /api/auth/login | ログイン | 不要 | - |
+| POST | /api/auth/refresh | トークンリフレッシュ | 不要 | - |
+| GET | /api/auth/me | ログインユーザー情報取得 | 必要 | any |
+| GET | /api/products | 商品一覧取得 | 不要 | - |
+| GET | /api/products/:id | 商品詳細取得 | 不要 | - |
+| POST | /api/products | 商品作成 | 必要 | admin |
+| PATCH | /api/products/:id | 商品更新 | 必要 | admin |
+| DELETE | /api/products/:id | 商品削除 | 必要 | admin |
+| GET | /api/orders | 注文一覧取得 | 必要 | any |
+| GET | /api/orders/:id | 注文詳細取得 | 必要 | any |
+| POST | /api/orders | 注文作成 | 必要 | any |
+| PATCH | /api/orders/:id/status | 注文ステータス更新 | 必要 | admin |
+| GET | /api/orders/:id/cancel | 注文キャンセル | 必要 | any |
+| GET | /api/categories | カテゴリ一覧取得 | 不要 | - |
+| GET | /api/categories/:id | カテゴリ詳細取得 | 不要 | - |
+| POST | /api/categories | カテゴリ作成 | 必要 | admin |
+| PATCH | /api/categories/:id | カテゴリ更新 | 必要 | admin |
+| DELETE | /api/categories/:id | カテゴリ削除 | 必要 | admin |
+| GET | /health | ヘルスチェック | 不要 | - |
+
+## 認証
+
+認証が必要なエンドポイントでは、
+リクエストヘッダーにJWTアクセストークンを含める。
+
+```
+Authorization: Bearer &lt;access_token&gt;
+```
+
+アクセストークンの有効期限はデフォルトで15分。
+リフレッシュトークンの有効期限は7日間。
+
+## レート制限
+
+/api/ 配下の全エンドポイントに適用。
+- ウィンドウ: 15分（デフォルト）
+- 最大リクエスト数: 100回/ウィンドウ
+
+---
+
+## POST /api/auth/register
+
+新規ユーザーを登録し、トークンペアを返す。
+
+リクエスト:
+```json
+{
+  "email": "user@example.com",
+  "password": "securePassword123",
+  "name": "山田太郎"
+}
+```
+
+バリデーション:
+- email: 有効なメールアドレス形式（必須）
+- password: 8文字以上128文字以下（必須）
+- name: 1文字以上100文字以下（必須）
+
+レスポンス: 201 Created
+```json
+{
+  "user": {
+    "id": "clxyz1234567890",
+    "email": "user@example.com",
+    "name": "山田太郎",
+    "role": "customer"
+  },
+  "accessToken": "eyJhbGciOiJIUzI1NiIs...",
+  "refreshToken": "eyJhbGciOiJIUzI1NiIs..."
+}
+```
+
+エラー:
+- 400: メールアドレスが既に登録されている
+- 400: バリデーションエラー
+
+---
+
+## POST /api/orders
+
+注文作成。認証が必要。
+トランザクション内で以下を一括実行:
+- 全商品の存在確認
+- 在庫の充足確認
+- クーポンの有効性チェック
+- 税額計算（デフォルト10%）
+- 送料計算（重量ベース、閾値以上で無料）
+- 注文レコード作成と在庫減算
+
+リクエスト:
+```json
+{
+  "items": [
+    { "productId": "prod_abc123", "quantity": 2 },
+    { "productId": "prod_def456", "quantity": 1 }
+  ],
+  "shippingAddress": "東京都渋谷区...",
+  "couponCode": "SPRING2026"
+}
+```
+
+レスポンス: 201 Created
+```json
+{
+  "id": "order_xyz789",
+  "status": "pending",
+  "subtotal": 6400,
+  "tax": 640,
+  "shippingFee": 0,
+  "discount": 0,
+  "totalAmount": 7040,
+  "items": [...]
+}
+```
+
+## エラーコード一覧
+
+| code | 意味 |
+|------|------|
+| NOT_FOUND | リソースが存在しない |
+| BAD_REQUEST | リクエストが不正 |
+| VALIDATION_ERROR | バリデーションエラー |
+| UNAUTHORIZED | 認証が必要 |
+| FORBIDDEN | 権限不足 |
+| CONFLICT | リソースの競合 |
+| INSUFFICIENT_STOCK | 在庫不足 |
+| INVALID_STATUS_TRANSITION | 不正なステータス遷移 |
+| CANCEL_NOT_ALLOWED | キャンセル不可 |
+| INTERNAL_ERROR | 内部エラー |
+
+（他16エンドポイントも同等の詳細度で記載...）</code></pre>
+        </div>
+      </div>
+
+      <!-- Tab: README -->
+      <div id="after-readme" class="tab-content">
+        <div class="code-scroll bg-[#1e1e2e]">
+<pre><code class="language-markdown"># EC商品管理API
+
+商品カタログ、注文処理、カテゴリ管理を提供するREST API。
+JWT認証とロールベースのアクセス制御、
+注文のステータス遷移管理、在庫の自動減算、
+税計算と送料計算を備える。
+
+## 技術スタック
+
+| 分類 | 技術 |
+|------|------|
+| ランタイム | Node.js |
+| 言語 | TypeScript |
+| フレームワーク | Express |
+| ORM | Prisma |
+| バリデーション | Zod |
+| 認証 | JSON Web Token (jsonwebtoken) |
+| パスワードハッシュ | bcryptjs |
+| セキュリティ | helmet, cors, express-rate-limit |
+
+## セットアップ
+
+```bash
+git clone &lt;repository-url&gt;
+cd &lt;project-directory&gt;
+npm install
+cp .env.example .env
+npx prisma migrate dev
+npm run dev
+```
+
+## ディレクトリ構成
+
+```
+src/
+  server.ts          エントリーポイント。helmet, cors,
+                     rate-limit, logger登録。
+  routes/
+    index.ts         4リソースのルーター登録
+    products.ts      商品CRUD。検索、価格帯フィルタ、
+                     ソート対応。admin限定。
+    orders.ts        注文管理。税計算、送料、クーポン。
+                     トランザクション内で在庫減算。
+    auth.ts          認証4エンドポイント。JWT発行。
+    categories.ts    カテゴリCRUD。階層構造対応。
+  middleware/
+    auth.ts          JWT認証 + ロールベースアクセス制御
+    validation.ts    Zodバリデーション（body + query）
+    logger.ts        構造化JSONリクエストログ
+  db/
+    prisma.ts        Prismaシングルトン + 接続チェック
+  utils/
+    errors.ts        カスタムエラー5種 + エラーコード
+    tax.ts           税額・送料計算ユーティリティ
+  types/
+    index.ts         共有型定義
+```</code></pre>
+        </div>
+      </div>
+
+      <!-- Tab: Architecture -->
+      <div id="after-arch" class="tab-content">
+        <div class="code-scroll bg-[#1e1e2e]">
+<pre><code class="language-markdown"># アーキテクチャ概要
+
+Express + Prisma による3層構成のREST API。
+ルーティング層、ミドルウェア層、データアクセス層に分離し、
+ロールベースのアクセス制御と構造化ログを備える。
+
+## コンポーネント構成（Mermaid図）
+
+```mermaid
+graph TB
+    Client[クライアント]
+    subgraph Express Application
+        Server[server.ts]
+        subgraph Global Middleware
+            Helmet / CORS / RateLimit / JSON / Logger
+        end
+        subgraph Route Middleware
+            AuthMW[JWT認証 + ロール制御]
+            ValidMW[Zodバリデーション]
+        end
+        subgraph Routes
+            Auth / Products / Orders / Categories
+        end
+        subgraph Utilities
+            Errors / Tax / Types
+        end
+        DB[Prisma Client]
+    end
+    Database[(PostgreSQL)]
+```
+
+## 注文ステータス遷移（Mermaid図）
+
+```mermaid
+stateDiagram-v2
+    [*] --> pending : 注文作成
+    pending --> confirmed : 注文確定 (admin)
+    pending --> cancelled : キャンセル (admin / user)
+    confirmed --> processing : 処理開始 (admin)
+    confirmed --> cancelled : キャンセル (admin / user)
+    processing --> shipped : 出荷完了 (admin)
+    shipped --> delivered : 配達完了 (admin)
+    delivered --> [*]
+    cancelled --> [*]
+```
+
+## 注文作成フロー（Mermaid図）
+
+バリデーション → 商品存在確認 → 在庫チェック
+→ クーポン適用 → 税計算 → 送料計算
+→ トランザクション（注文作成 + 在庫減算）
+
+## リクエスト処理フロー（Mermaid図）
+
+Rate Limit → helmet/cors → Logger
+→ JWT認証 → ロールチェック
+→ Zodバリデーション → Route Handler
+→ Prisma → PostgreSQL → レスポンス</code></pre>
+        </div>
+      </div>
+
+      <!-- Tab: Env Vars -->
+      <div id="after-env" class="tab-content">
+        <div class="code-scroll bg-[#1e1e2e]">
+<pre><code class="language-markdown"># 環境変数リファレンス
+
+## 変数一覧
+
+| 変数名 | 必須 | デフォルト | 説明 |
+|--------|------|-----------|------|
+| PORT | 任意 | 4000 | 待受ポート番号 |
+| NODE_ENV | 任意 | - | 実行環境 |
+| DATABASE_URL | 必須 | - | PostgreSQL接続文字列 |
+| JWT_SECRET | 必須 | - | アクセストークン署名キー |
+| JWT_REFRESH_SECRET | 必須 | - | リフレッシュトークン署名キー |
+| JWT_EXPIRES_IN | 任意 | 15m | アクセストークン有効期限 |
+| CORS_ORIGIN | 任意 | localhost:3000 | CORS許可オリジン |
+| RATE_LIMIT_WINDOW_MS | 任意 | 900000 | レート制限ウィンドウ(ms) |
+| RATE_LIMIT_MAX | 任意 | 100 | 最大リクエスト数/window |
+| TAX_RATE | 任意 | 0.10 | 消費税率 |
+| FREE_SHIPPING_THRESHOLD | 任意 | 5000 | 送料無料閾値(円) |
+
+## .env テンプレート
+
+```env
+PORT=4000
+NODE_ENV=development
+DATABASE_URL=postgresql://appuser:localdevpassword@localhost:5432/ecshop_dev?schema=public
+JWT_SECRET=dev-jwt-secret-change-me-in-production-abc123
+JWT_REFRESH_SECRET=dev-refresh-secret-change-me-in-production-xyz789
+JWT_EXPIRES_IN=15m
+CORS_ORIGIN=http://localhost:3000
+RATE_LIMIT_WINDOW_MS=900000
+RATE_LIMIT_MAX=100
+TAX_RATE=0.10
+FREE_SHIPPING_THRESHOLD=5000
+```
+
+本番環境では以下でシークレットを生成:
+```bash
+openssl rand -base64 48
+```</code></pre>
+        </div>
+      </div>
+
+      <!-- Tab: Deploy -->
+      <div id="after-deploy" class="tab-content">
+        <div class="code-scroll bg-[#1e1e2e]">
+<pre><code class="language-markdown"># デプロイガイド
+
+## 前提条件
+- Node.js 18以上
+- PostgreSQL 15以上
+- Docker / Docker Compose（コンテナデプロイの場合）
+
+## ローカルビルド
+
+```bash
+npm ci
+npx prisma generate
+npx prisma migrate deploy   # 本番用
+npx tsc
+NODE_ENV=production node dist/server.js
+```
+
+## Dockerfile（マルチステージ）
+
+```dockerfile
+FROM node:18-alpine AS builder
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY prisma ./prisma
+RUN npx prisma generate
+COPY tsconfig.json ./
+COPY src ./src
+RUN npx tsc
+
+FROM node:18-alpine AS runner
+WORKDIR /app
+RUN addgroup --system --gid 1001 appgroup && \
+    adduser --system --uid 1001 appuser
+COPY package.json package-lock.json ./
+RUN npm ci --production
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/dist ./dist
+COPY prisma ./prisma
+USER appuser
+EXPOSE 4000
+HEALTHCHECK --interval=30s --timeout=5s \
+    CMD wget --spider http://localhost:4000/health || exit 1
+CMD ["node", "dist/server.js"]
+```
+
+## docker-compose.yml
+
+```yaml
+services:
+  api:
+    build: .
+    ports: ["4000:4000"]
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://appuser:dbpassword@db:5432/ecshop
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:3000}
+    depends_on:
+      db: { condition: service_healthy }
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: appuser
+      POSTGRES_PASSWORD: dbpassword
+      POSTGRES_DB: ecshop
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U appuser"]
+volumes:
+  pgdata:
+```
+
+## 本番チェックリスト
+- JWT_SECRET/JWT_REFRESH_SECRETに十分な長さのランダム文字列
+- CORS_ORIGINにフロントエンド本番URL
+- リバースプロキシ経由でHTTPS終端
+- ログ収集（構造化JSON出力済み）
+- プロセスマネージャーまたはコンテナで管理</code></pre>
+        </div>
+      </div>
+
+      <!-- After Annotations -->
+      <div class="bg-white px-5 py-4 space-y-2 border-t border-warm-200">
+        <div class="annotation annotation-good">全20エンドポイントを網羅、認証・ロール要件を正確に記載</div>
+        <div class="annotation annotation-good">Zodスキーマから転記したバリデーションルール付き</div>
+        <div class="annotation annotation-good">エラーコード10種を体系的に整理</div>
+        <div class="annotation annotation-good">環境変数11個を参照箇所付きで文書化</div>
+        <div class="annotation annotation-good">Mermaid図4種（コンポーネント/フロー/ステータス遷移/注文処理）</div>
+        <div class="annotation annotation-good">本番デプロイ用Docker構成とチェックリスト完備</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- Difference Cards -->
+<section class="bg-warm-50 border-y border-warm-200">
+  <div class="max-w-7xl mx-auto px-6 py-16 fade-in">
+    <h2 class="text-lg font-bold text-navy-600 mb-8 pb-2 border-b-2 border-navy-600 inline-block">主要な改善点</h2>
+    <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-5 mt-8">
+
+      <div class="bg-white rounded-lg border border-warm-200 p-6 hover:shadow-md transition-shadow">
+        <div class="text-xs font-mono text-warm-400 mb-2">Coverage</div>
+        <h3 class="font-bold text-navy-600 mb-3">エンドポイント網羅率</h3>
+        <div class="flex items-end gap-4 mb-3">
+          <div>
+            <div class="text-xs text-warm-500">Before</div>
+            <div class="stat-number text-2xl font-bold text-warm-400">5 / 20</div>
+          </div>
+          <div class="text-warm-300 text-lg pb-0.5">-&gt;</div>
+          <div>
+            <div class="text-xs text-navy-400">After</div>
+            <div class="stat-number text-2xl font-bold text-navy-600">20 / 20</div>
+          </div>
+        </div>
+        <div class="w-full bg-warm-200 rounded-full h-2">
+          <div class="bg-navy-600 h-2 rounded-full" style="width: 100%"></div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-lg border border-warm-200 p-6 hover:shadow-md transition-shadow">
+        <div class="text-xs font-mono text-warm-400 mb-2">Accuracy</div>
+        <h3 class="font-bold text-navy-600 mb-3">フィールド名の正確性</h3>
+        <div class="space-y-2 text-sm">
+          <div class="flex justify-between">
+            <span class="text-warm-500 line-through">pass</span>
+            <span class="text-navy-600 font-medium">password</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-warm-500 line-through">keyword</span>
+            <span class="text-navy-600 font-medium">search</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-warm-500 line-through">products (配列)</span>
+            <span class="text-navy-600 font-medium">items [{productId, quantity}]</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-warm-500 line-through">address</span>
+            <span class="text-navy-600 font-medium">shippingAddress</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-lg border border-warm-200 p-6 hover:shadow-md transition-shadow">
+        <div class="text-xs font-mono text-warm-400 mb-2">Status Codes</div>
+        <h3 class="font-bold text-navy-600 mb-3">HTTPステータスコード</h3>
+        <div class="space-y-2 text-sm">
+          <div class="flex justify-between">
+            <span class="text-warm-500">Before: 全て200</span>
+            <span class="text-navy-600 font-medium">After: 8種を使い分け</span>
+          </div>
+          <div class="mt-2 flex flex-wrap gap-1">
+            <span class="text-xs bg-navy-50 text-navy-600 px-2 py-0.5 rounded">200</span>
+            <span class="text-xs bg-navy-50 text-navy-600 px-2 py-0.5 rounded">201</span>
+            <span class="text-xs bg-navy-50 text-navy-600 px-2 py-0.5 rounded">204</span>
+            <span class="text-xs bg-navy-50 text-navy-600 px-2 py-0.5 rounded">400</span>
+            <span class="text-xs bg-navy-50 text-navy-600 px-2 py-0.5 rounded">401</span>
+            <span class="text-xs bg-navy-50 text-navy-600 px-2 py-0.5 rounded">403</span>
+            <span class="text-xs bg-navy-50 text-navy-600 px-2 py-0.5 rounded">404</span>
+            <span class="text-xs bg-navy-50 text-navy-600 px-2 py-0.5 rounded">409</span>
+            <span class="text-xs bg-navy-50 text-navy-600 px-2 py-0.5 rounded">429</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-lg border border-warm-200 p-6 hover:shadow-md transition-shadow">
+        <div class="text-xs font-mono text-warm-400 mb-2">Documents</div>
+        <h3 class="font-bold text-navy-600 mb-3">ドキュメント種類</h3>
+        <div class="flex items-end gap-4 mb-3">
+          <div>
+            <div class="text-xs text-warm-500">Before</div>
+            <div class="stat-number text-2xl font-bold text-warm-400">1</div>
+          </div>
+          <div class="text-warm-300 text-lg pb-0.5">-&gt;</div>
+          <div>
+            <div class="text-xs text-navy-400">After</div>
+            <div class="stat-number text-2xl font-bold text-navy-600">5</div>
+          </div>
+        </div>
+        <div class="text-xs text-warm-500 space-y-1">
+          <div>README / API Reference / Architecture</div>
+          <div>Environment Variables / Deploy Guide</div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-lg border border-warm-200 p-6 hover:shadow-md transition-shadow">
+        <div class="text-xs font-mono text-warm-400 mb-2">Business Logic</div>
+        <h3 class="font-bold text-navy-600 mb-3">ビジネスロジックの文書化</h3>
+        <div class="text-sm text-warm-600 space-y-1.5">
+          <div class="flex items-start gap-2">
+            <span class="text-navy-600 mt-0.5 text-xs">--</span>
+            <span>注文ステータス遷移（6状態、状態遷移図付き）</span>
+          </div>
+          <div class="flex items-start gap-2">
+            <span class="text-navy-600 mt-0.5 text-xs">--</span>
+            <span>税計算ロジック（税率可変、端数切り捨て）</span>
+          </div>
+          <div class="flex items-start gap-2">
+            <span class="text-navy-600 mt-0.5 text-xs">--</span>
+            <span>送料計算（重量ベース4段階、閾値で無料）</span>
+          </div>
+          <div class="flex items-start gap-2">
+            <span class="text-navy-600 mt-0.5 text-xs">--</span>
+            <span>在庫トランザクション（注文時減算、キャンセル時復元）</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-lg border border-warm-200 p-6 hover:shadow-md transition-shadow">
+        <div class="text-xs font-mono text-warm-400 mb-2">Remaining TODOs</div>
+        <h3 class="font-bold text-navy-600 mb-3">残存TODO</h3>
+        <div class="flex items-end gap-4 mb-3">
+          <div>
+            <div class="text-xs text-warm-500">Before</div>
+            <div class="stat-number text-2xl font-bold text-warm-400">12</div>
+          </div>
+          <div class="text-warm-300 text-lg pb-0.5">-&gt;</div>
+          <div>
+            <div class="text-xs text-navy-400">After</div>
+            <div class="stat-number text-2xl font-bold text-navy-600">0</div>
+          </div>
+        </div>
+        <p class="text-xs text-warm-500">Before版の12個のTODOは全てAfter版で解決済み</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+
+<!-- Demo Prompt Section -->
+<section class="max-w-7xl mx-auto px-6 py-16 fade-in">
+  <h2 class="text-lg font-bold text-navy-600 mb-2 pb-2 border-b-2 border-navy-600 inline-block">デモ手順</h2>
+  <p class="text-warm-500 text-sm mt-4 mb-8">以下のプロンプトをClaude Codeにそのまま投入する。約750行のコードを読み取り、5種類のドキュメントが一括生成される。</p>
+
+  <div class="bg-warm-50 border border-warm-200 rounded-lg overflow-hidden">
+    <div class="flex items-center justify-between px-5 py-3 bg-warm-100 border-b border-warm-200">
+      <div class="flex items-center gap-2">
+        <span class="text-xs font-mono text-warm-500">with-ai/prompt.md</span>
+        <span class="text-xs text-warm-400">--</span>
+        <span class="text-xs text-warm-500">Claude Code に投入するプロンプト</span>
+      </div>
+      <button id="copyPromptBtn" class="copy-btn text-xs border border-warm-300 text-warm-600 px-3 py-1.5 rounded font-medium" onclick="copyPrompt()">
+        コピー
+      </button>
+    </div>
+    <div class="code-scroll bg-[#1e1e2e]" style="max-height: 400px;">
+<pre><code class="language-markdown" id="promptContent">input/src/ 以下のTypeScriptコードを全ファイル読み込み、以下の5種類のドキュメントを日本語で生成してください。
+出力先は output/ ディレクトリです。
+
+生成対象:
+
+1. output/README.md -- プロジェクトREADME
+   - このAPIが何をするものか、コードの実装内容から推測して概要を書く
+   - 使用技術スタック（package.jsonがなくてもimport文から判断すること）
+   - ローカル環境でのセットアップ手順（clone, install, env設定, migrate, 起動）
+   - ディレクトリ構成と各ファイルの責務（1ファイル2-3行で説明）
+   - 関連ドキュメントへのリンク
+
+2. output/api-reference.md -- API仕様書
+   - エンドポイント一覧表（メソッド、パス、説明、認証要否、必要ロール）
+   - 認証方式の説明（JWTの使い方、トークン有効期限、リフレッシュフロー）
+   - レート制限の仕様
+   - 各エンドポイントの詳細:
+     * リクエストボディのJSON例（Zodスキーマから正確に読み取ること）
+     * バリデーションルール（最小/最大文字数、型、必須/任意を明記）
+     * レスポンスボディのJSON例（includeやselectから構造を推測）
+     * 想定されるエラーとHTTPステータスコード
+   - エラーレスポンスの共通形式
+   - エラーコード一覧（コード上のcodeフィールドから収集）
+   - HTTPステータスコード一覧と発生条件
+
+3. output/architecture.md -- アーキテクチャ概要
+   - アーキテクチャの概要説明
+   - Mermaidによるコンポーネント構成図
+   - Mermaidによるリクエスト処理フロー図
+   - Mermaidによる注文ステータス遷移図
+   - 注文作成の処理フロー図
+   - レイヤー間の責務の説明
+
+4. output/env-vars.md -- 環境変数リファレンス
+   - コード中の process.env.XXX を全て収集した一覧表
+   - 各変数の詳細説明（参照箇所、挙動への影響）
+   - .envファイルのテンプレート（全変数を含み、値はダミー）
+   - シークレット生成用のコマンド例
+
+5. output/deploy-guide.md -- デプロイガイド
+   - 前提条件
+   - ローカルビルドと実行の手順
+   - マルチステージビルドのDockerfileサンプル
+   - docker-compose.ymlサンプル（API + PostgreSQL、全環境変数を含む）
+   - ヘルスチェックの確認方法
+   - 本番環境のチェックリスト
+
+制約:
+- 全て日本語で記述する
+- 絵文字は一切使わない
+- コードに書かれていない情報を推測で補う場合は「推定」と明記する
+- 環境変数のサンプル値には本物のシークレットを使わない
+- Mermaid図はGitHubで描画可能な構文にする
+- ページネーションのレスポンス形式はコードのres.json()呼び出しから正確に読み取る
+- ロールベースのアクセス制御の有無はrequireRole()の引数から判定する
+- バリデーションルールはZodスキーマの定義から正確に転記する</code></pre>
+    </div>
+  </div>
+
+  <div class="mt-8 grid md:grid-cols-3 gap-4">
+    <div class="bg-white border border-warm-200 rounded-lg p-5">
+      <div class="text-xs font-mono text-warm-400 mb-1">Step 1</div>
+      <p class="text-sm text-warm-700">プロジェクトルートで Claude Code を起動する</p>
+    </div>
+    <div class="bg-white border border-warm-200 rounded-lg p-5">
+      <div class="text-xs font-mono text-warm-400 mb-1">Step 2</div>
+      <p class="text-sm text-warm-700">上記プロンプトをそのまま貼り付けて実行する</p>
+    </div>
+    <div class="bg-white border border-warm-200 rounded-lg p-5">
+      <div class="text-xs font-mono text-warm-400 mb-1">Step 3</div>
+      <p class="text-sm text-warm-700">output/ に生成された5ファイルを expected-output/ と比較する</p>
+    </div>
+  </div>
+</section>
+
+
+<!-- Source Code Preview -->
+<section class="bg-warm-50 border-y border-warm-200">
+  <div class="max-w-7xl mx-auto px-6 py-16 fade-in">
+    <h2 class="text-lg font-bold text-navy-600 mb-2 pb-2 border-b-2 border-navy-600 inline-block">入力ソースコード</h2>
+    <p class="text-warm-500 text-sm mt-4 mb-8">AIが読み取る対象。13ファイル、約750行のTypeScript。コメントは一切含まれていない。</p>
+
+    <div class="grid md:grid-cols-4 gap-3">
+      <div class="bg-white border border-warm-200 rounded-lg p-4">
+        <div class="text-xs font-mono text-navy-600 mb-2">server.ts</div>
+        <div class="text-xs text-warm-500 leading-relaxed">Express設定、helmet、cors、rate-limit、ルーター登録、ヘルスチェック</div>
+        <div class="text-xs text-warm-400 mt-2">47行</div>
+      </div>
+      <div class="bg-white border border-warm-200 rounded-lg p-4">
+        <div class="text-xs font-mono text-navy-600 mb-2">routes/orders.ts</div>
+        <div class="text-xs text-warm-500 leading-relaxed">注文CRUD、ステータス遷移、税計算、クーポン、在庫トランザクション</div>
+        <div class="text-xs text-warm-400 mt-2">223行</div>
+      </div>
+      <div class="bg-white border border-warm-200 rounded-lg p-4">
+        <div class="text-xs font-mono text-navy-600 mb-2">routes/products.ts</div>
+        <div class="text-xs text-warm-500 leading-relaxed">商品CRUD、検索、価格帯フィルタ、ソート、adminロール制限</div>
+        <div class="text-xs text-warm-400 mt-2">128行</div>
+      </div>
+      <div class="bg-white border border-warm-200 rounded-lg p-4">
+        <div class="text-xs font-mono text-navy-600 mb-2">routes/auth.ts</div>
+        <div class="text-xs text-warm-500 leading-relaxed">登録、ログイン、リフレッシュ、ユーザー情報取得</div>
+        <div class="text-xs text-warm-400 mt-2">109行</div>
+      </div>
+      <div class="bg-white border border-warm-200 rounded-lg p-4">
+        <div class="text-xs font-mono text-navy-600 mb-2">routes/categories.ts</div>
+        <div class="text-xs text-warm-500 leading-relaxed">カテゴリCRUD、階層構造、slug一意制約</div>
+        <div class="text-xs text-warm-400 mt-2">104行</div>
+      </div>
+      <div class="bg-white border border-warm-200 rounded-lg p-4">
+        <div class="text-xs font-mono text-navy-600 mb-2">types/index.ts</div>
+        <div class="text-xs text-warm-500 leading-relaxed">OrderStatus、UserRole、JWT、Pagination、入出力型</div>
+        <div class="text-xs text-warm-400 mt-2">74行</div>
+      </div>
+      <div class="bg-white border border-warm-200 rounded-lg p-4">
+        <div class="text-xs font-mono text-navy-600 mb-2">utils/errors.ts</div>
+        <div class="text-xs text-warm-500 leading-relaxed">AppError基底、5サブクラス、エラーコード、Expressハンドラ</div>
+        <div class="text-xs text-warm-400 mt-2">68行</div>
+      </div>
+      <div class="bg-white border border-warm-200 rounded-lg p-4">
+        <div class="text-xs font-mono text-navy-600 mb-2">他5ファイル</div>
+        <div class="text-xs text-warm-500 leading-relaxed">auth middleware, validation, logger, prisma client, tax utils</div>
+        <div class="text-xs text-warm-400 mt-2">計197行</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- Footer -->
+<footer class="bg-navy-600 text-white">
+  <div class="max-w-7xl mx-auto px-6 py-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+    <div class="text-sm text-navy-200">
+      Theme 12 / 12 -- AI Development Demo
+    </div>
+    <a href="../showcase/index.html" class="bg-white text-navy-600 font-semibold px-6 py-2.5 rounded hover:bg-navy-50 transition-colors text-sm">
+      Showcase に戻る
+    </a>
+  </div>
+</footer>
+
+
+<script>
+// Tab switching
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const tabId = btn.dataset.tab;
+    const panel = btn.closest('.border');
+
+    panel.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+
+    panel.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    panel.querySelector('#' + tabId).classList.add('active');
+
+    Prism.highlightAllUnder(panel.querySelector('#' + tabId));
+  });
+});
+
+// Copy prompt
+function copyPrompt() {
+  const content = document.getElementById('promptContent').textContent;
+  navigator.clipboard.writeText(content).then(() => {
+    const btn = document.getElementById('copyPromptBtn');
+    btn.textContent = 'コピー済み';
+    btn.classList.add('copied');
+    setTimeout(() => {
+      btn.textContent = 'コピー';
+      btn.classList.remove('copied');
+    }, 2000);
+  });
+}
+
+// Fade-in on scroll
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      entry.target.classList.add('visible');
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('.fade-in').forEach(el => observer.observe(el));
+
+// Re-highlight Prism
+document.addEventListener('DOMContentLoaded', () => Prism.highlightAll());
+</script>
+
+</body>
+</html>

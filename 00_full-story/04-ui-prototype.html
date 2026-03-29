@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TeamTalk - Chat Prototype</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        navy: {
+          50: '#eef2f7',
+          100: '#d4dde8',
+          200: '#a9bbcf',
+          300: '#7e99b6',
+          400: '#54779e',
+          500: '#2a5585',
+          600: '#1e3a5f',
+          700: '#172e4c',
+          800: '#112239',
+          900: '#0b1626',
+        },
+        warm: {
+          50: '#f9fafb',
+          100: '#f3f4f6',
+          200: '#e5e7eb',
+          300: '#d1d5db',
+          400: '#9ca3af',
+          500: '#6b7280',
+          600: '#4b5563',
+          700: '#374151',
+          800: '#1f2937',
+        }
+      }
+    }
+  }
+}
+</script>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Sans', sans-serif; }
+  .scrollbar-thin::-webkit-scrollbar { width: 6px; }
+  .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+  .scrollbar-thin::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+  .message-enter { animation: fadeIn 0.2s ease-out; }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+</style>
+</head>
+<body class="bg-warm-50 h-screen flex overflow-hidden">
+
+<!-- サイドバー -->
+<aside id="sidebar" class="w-64 bg-navy-600 text-white flex flex-col flex-shrink-0 transition-transform duration-200 lg:translate-x-0 -translate-x-full fixed lg:static inset-y-0 left-0 z-30">
+  <!-- ワークスペース名 -->
+  <div class="p-4 border-b border-navy-500">
+    <h1 class="text-lg font-bold tracking-tight">TeamTalk</h1>
+    <p class="text-navy-200 text-xs mt-1">Acme Corporation</p>
+  </div>
+
+  <!-- チャンネル一覧 -->
+  <nav class="flex-1 overflow-y-auto scrollbar-thin py-3">
+    <div class="px-4 mb-2">
+      <span class="text-navy-300 text-xs font-semibold uppercase tracking-wider">Channels</span>
+    </div>
+    <ul id="channel-list" class="space-y-0.5 px-2"></ul>
+
+    <div class="px-4 mt-5 mb-2">
+      <span class="text-navy-300 text-xs font-semibold uppercase tracking-wider">Direct Messages</span>
+    </div>
+    <ul id="dm-list" class="space-y-0.5 px-2"></ul>
+  </nav>
+
+  <!-- ユーザー情報 -->
+  <div class="p-3 border-t border-navy-500 flex items-center gap-3">
+    <div class="w-8 h-8 rounded-full bg-navy-400 flex items-center justify-center text-sm font-bold">YT</div>
+    <div class="flex-1 min-w-0">
+      <p class="text-sm font-medium truncate">山田 太郎</p>
+      <p class="text-navy-300 text-xs">オンライン</p>
+    </div>
+  </div>
+</aside>
+
+<!-- オーバーレイ（モバイル用） -->
+<div id="overlay" class="fixed inset-0 bg-black/40 z-20 hidden lg:hidden" onclick="toggleSidebar()"></div>
+
+<!-- メインエリア -->
+<main class="flex-1 flex flex-col min-w-0">
+  <!-- ヘッダー -->
+  <header class="h-14 bg-white border-b border-warm-200 flex items-center px-4 flex-shrink-0">
+    <button onclick="toggleSidebar()" class="lg:hidden mr-3 text-warm-500 hover:text-warm-700">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+      </svg>
+    </button>
+    <div class="flex items-center gap-2">
+      <span class="text-warm-400 text-lg">#</span>
+      <h2 id="channel-name" class="font-semibold text-warm-800 text-sm">general</h2>
+    </div>
+    <span id="channel-desc" class="hidden sm:inline text-warm-400 text-xs ml-3 truncate">チームの雑談チャンネル</span>
+    <div class="ml-auto flex items-center gap-2">
+      <span id="member-count" class="text-warm-400 text-xs">12 members</span>
+    </div>
+  </header>
+
+  <!-- メッセージエリア -->
+  <div id="message-area" class="flex-1 overflow-y-auto scrollbar-thin px-4 py-4 space-y-1">
+  </div>
+
+  <!-- 入力エリア -->
+  <div class="p-3 border-t border-warm-200 bg-white">
+    <div class="flex items-end gap-2 max-w-4xl mx-auto">
+      <div class="flex-1 relative">
+        <textarea
+          id="message-input"
+          rows="1"
+          placeholder="メッセージを入力..."
+          class="w-full resize-none rounded-lg border border-warm-300 px-4 py-2.5 text-sm text-warm-800 placeholder-warm-400 focus:outline-none focus:ring-2 focus:ring-navy-500 focus:border-transparent transition"
+          onkeydown="handleKeydown(event)"
+          oninput="autoResize(this)"
+        ></textarea>
+      </div>
+      <button
+        onclick="sendMessage()"
+        class="h-10 px-4 bg-navy-600 text-white rounded-lg text-sm font-medium hover:bg-navy-700 active:bg-navy-800 transition flex-shrink-0"
+      >
+        送信
+      </button>
+    </div>
+  </div>
+</main>
+
+<script>
+// モックデータ
+const currentUser = { id: 'u1', name: '山田 太郎', initials: 'YT' };
+
+const users = {
+  u1: { name: '山田 太郎', initials: 'YT', presence: 'online' },
+  u2: { name: '鈴木 花子', initials: 'SH', presence: 'online' },
+  u3: { name: '佐藤 健一', initials: 'SK', presence: 'away' },
+  u4: { name: '田中 美咲', initials: 'TM', presence: 'online' },
+  u5: { name: '高橋 大輔', initials: 'TD', presence: 'offline' },
+};
+
+const channels = [
+  { id: 'ch1', name: 'general', desc: 'チームの雑談チャンネル', unread: 0 },
+  { id: 'ch2', name: 'engineering', desc: '開発関連の議論', unread: 3 },
+  { id: 'ch3', name: 'design', desc: 'デザインレビュー', unread: 0 },
+  { id: 'ch4', name: 'random', desc: '自由帳', unread: 1 },
+];
+
+const dms = [
+  { id: 'dm1', userId: 'u2', unread: 2 },
+  { id: 'dm2', userId: 'u3', unread: 0 },
+  { id: 'dm3', userId: 'u4', unread: 0 },
+];
+
+const mockMessages = {
+  ch1: [
+    { id: 'm1', userId: 'u2', content: 'おはようございます。今日のスタンドアップ、10時からでしたっけ？', time: '09:02' },
+    { id: 'm2', userId: 'u3', content: '10時からです。会議室Bで。', time: '09:03' },
+    { id: 'm3', userId: 'u4', content: 'リモート参加します。Meetのリンクもらえますか？', time: '09:05' },
+    { id: 'm4', userId: 'u2', content: 'meet.google.com/abc-defg-hij\nこちらからどうぞ。', time: '09:06' },
+    { id: 'm5', userId: 'u1', content: '了解です。資料を画面共有で出しますね。', time: '09:08' },
+    { id: 'm6', userId: 'u3', content: 'チャットアプリの進捗、今日のスタンドアップで報告します。DB設計のレビューが昨日終わったので、API実装に入れそうです。', time: '09:12' },
+    { id: 'm7', userId: 'u4', content: 'UI側もプロトタイプがほぼできています。あとはメッセージの吹き出しの挙動を調整するだけ。', time: '09:15' },
+    { id: 'm8', userId: 'u2', content: 'いい感じですね。テストコードも並行して書いていきましょう。', time: '09:17' },
+    { id: 'm9', userId: 'u5', content: 'すみません、今日午後から体調不良で早退します。タスクの引き継ぎメモをスレッドに残しておきます。', time: '10:42' },
+    { id: 'm10', userId: 'u1', content: 'お大事に。急ぎのタスクがあれば振り分けるので、チャンネルに書いておいてください。', time: '10:45' },
+  ],
+  ch2: [
+    { id: 'm20', userId: 'u3', content: 'PRレビューお願いします。メッセージCRUDのAPIを実装しました。\n\nhttps://github.com/acme/teamtalk/pull/42', time: '14:20' },
+    { id: 'm21', userId: 'u1', content: 'Zodのバリデーション、content の maxLength が API spec と合ってない気がする。spec 側は 4000 だけどコード側が 5000 になってる。', time: '14:35' },
+    { id: 'm22', userId: 'u3', content: '指摘ありがとうございます。修正してプッシュしました。', time: '14:48' },
+    { id: 'm23', userId: 'u4', content: 'フロント側の型定義もこのPRに合わせて更新しておきます。', time: '15:02' },
+  ],
+  ch3: [
+    { id: 'm30', userId: 'u4', content: 'チャット画面のモックアップをFigmaに上げました。フィードバックお願いします。', time: '11:00' },
+    { id: 'm31', userId: 'u2', content: '吹き出しの角丸、もう少し控えめでもいいかも。8pxくらい？', time: '11:20' },
+    { id: 'm32', userId: 'u4', content: '6pxに落としてみました。こっちのほうが落ち着きますね。', time: '11:45' },
+  ],
+  ch4: [
+    { id: 'm40', userId: 'u5', content: '昼のランチ、駅前の新しいカレー屋行きませんか。', time: '11:30' },
+    { id: 'm41', userId: 'u2', content: '行きたいです。12時に1Fロビー集合で。', time: '11:32' },
+  ],
+};
+
+let activeChannel = 'ch1';
+
+// サイドバー描画
+function renderSidebar() {
+  const chList = document.getElementById('channel-list');
+  chList.innerHTML = channels.map(ch => `
+    <li>
+      <button
+        onclick="switchChannel('${ch.id}')"
+        class="w-full text-left px-3 py-1.5 rounded-md text-sm flex items-center justify-between transition
+          ${ch.id === activeChannel ? 'bg-navy-500 text-white' : 'text-navy-200 hover:bg-navy-500/50 hover:text-white'}"
+      >
+        <span class="truncate"><span class="text-navy-300 mr-1">#</span>${ch.name}</span>
+        ${ch.unread > 0 ? `<span class="bg-white text-navy-600 text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">${ch.unread}</span>` : ''}
+      </button>
+    </li>
+  `).join('');
+
+  const dmList = document.getElementById('dm-list');
+  dmList.innerHTML = dms.map(dm => {
+    const user = users[dm.userId];
+    const presenceColor = user.presence === 'online' ? 'bg-green-400' : user.presence === 'away' ? 'bg-yellow-400' : 'bg-warm-400';
+    return `
+      <li>
+        <button
+          onclick="switchChannel('${dm.id}')"
+          class="w-full text-left px-3 py-1.5 rounded-md text-sm flex items-center gap-2 transition
+            ${dm.id === activeChannel ? 'bg-navy-500 text-white' : 'text-navy-200 hover:bg-navy-500/50 hover:text-white'}"
+        >
+          <span class="relative flex-shrink-0">
+            <span class="w-6 h-6 rounded-full bg-navy-400 flex items-center justify-center text-xs font-bold">${user.initials}</span>
+            <span class="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-navy-600 ${presenceColor}"></span>
+          </span>
+          <span class="truncate">${user.name}</span>
+          ${dm.unread > 0 ? `<span class="ml-auto bg-white text-navy-600 text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">${dm.unread}</span>` : ''}
+        </button>
+      </li>
+    `;
+  }).join('');
+}
+
+// メッセージ描画
+function renderMessages(channelId) {
+  const area = document.getElementById('message-area');
+  const msgs = mockMessages[channelId] || [];
+
+  let html = '';
+  let lastUserId = null;
+  let lastTime = null;
+
+  msgs.forEach(msg => {
+    const user = users[msg.userId];
+    const isMe = msg.userId === currentUser.id;
+    const isSameUser = msg.userId === lastUserId && msg.time === lastTime;
+
+    if (!isSameUser) {
+      html += `
+        <div class="flex items-start gap-3 mt-4 message-enter ${isMe ? '' : ''}">
+          <div class="w-9 h-9 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold
+            ${isMe ? 'bg-navy-600 text-white' : 'bg-warm-200 text-warm-600'}">
+            ${user.initials}
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-baseline gap-2">
+              <span class="text-sm font-semibold ${isMe ? 'text-navy-600' : 'text-warm-800'}">${user.name}</span>
+              <span class="text-xs text-warm-400">${msg.time}</span>
+            </div>
+            <p class="text-sm text-warm-700 mt-0.5 whitespace-pre-wrap break-words leading-relaxed">${escapeHtml(msg.content)}</p>
+          </div>
+        </div>
+      `;
+    } else {
+      html += `
+        <div class="pl-12 message-enter">
+          <p class="text-sm text-warm-700 whitespace-pre-wrap break-words leading-relaxed">${escapeHtml(msg.content)}</p>
+        </div>
+      `;
+    }
+    lastUserId = msg.userId;
+    lastTime = msg.time;
+  });
+
+  area.innerHTML = html;
+  area.scrollTop = area.scrollHeight;
+}
+
+// チャンネル切替
+function switchChannel(channelId) {
+  activeChannel = channelId;
+
+  const ch = channels.find(c => c.id === channelId);
+  if (ch) {
+    ch.unread = 0;
+    document.getElementById('channel-name').textContent = ch.name;
+    document.getElementById('channel-desc').textContent = ch.desc;
+  }
+
+  const dm = dms.find(d => d.id === channelId);
+  if (dm) {
+    dm.unread = 0;
+    const user = users[dm.userId];
+    document.getElementById('channel-name').textContent = user.name;
+    document.getElementById('channel-desc').textContent = 'ダイレクトメッセージ';
+  }
+
+  renderSidebar();
+  renderMessages(channelId);
+
+  // モバイルではサイドバーを閉じる
+  if (window.innerWidth < 1024) toggleSidebar();
+}
+
+// メッセージ送信
+function sendMessage() {
+  const input = document.getElementById('message-input');
+  const content = input.value.trim();
+  if (!content) return;
+
+  if (!mockMessages[activeChannel]) mockMessages[activeChannel] = [];
+
+  const now = new Date();
+  const time = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+
+  mockMessages[activeChannel].push({
+    id: 'm' + Date.now(),
+    userId: currentUser.id,
+    content,
+    time,
+  });
+
+  input.value = '';
+  input.style.height = 'auto';
+  renderMessages(activeChannel);
+}
+
+// キー操作
+function handleKeydown(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+}
+
+// テキストエリア自動リサイズ
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+// サイドバートグル
+function toggleSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const overlay = document.getElementById('overlay');
+  sidebar.classList.toggle('-translate-x-full');
+  overlay.classList.toggle('hidden');
+}
+
+// HTMLエスケープ
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// 初期描画
+renderSidebar();
+renderMessages(activeChannel);
+</script>
+</body>
+</html>

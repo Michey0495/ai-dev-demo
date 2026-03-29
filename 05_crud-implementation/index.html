@@ -1,0 +1,1197 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>05 CRUD実装 -- API仕様からCRUDルーター生成</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-typescript.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-markdown.min.js"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        navy: {
+          50: '#f0f4f8',
+          100: '#d9e2ec',
+          200: '#b6c7d8',
+          300: '#8da4bd',
+          400: '#6581a2',
+          500: '#3d5a80',
+          600: '#1e3a5f',
+          700: '#182f4e',
+          800: '#12243d',
+          900: '#0c192c',
+        },
+        warm: {
+          50: '#f9fafb',
+          100: '#f3f4f6',
+          200: '#e5e7eb',
+          300: '#d1d5db',
+          400: '#9ca3af',
+          500: '#6b7280',
+          600: '#4b5563',
+          700: '#374151',
+          800: '#1f2937',
+        }
+      }
+    }
+  }
+}
+</script>
+<style>
+  html { scroll-behavior: smooth; }
+  body { font-family: 'Noto Sans JP', 'Helvetica Neue', Arial, sans-serif; }
+
+  .code-scroll {
+    max-height: 520px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #6b7280 transparent;
+  }
+  .code-scroll::-webkit-scrollbar { width: 6px; }
+  .code-scroll::-webkit-scrollbar-thumb { background: #6b7280; border-radius: 3px; }
+  .code-scroll::-webkit-scrollbar-track { background: transparent; }
+
+  pre[class*="language-"] {
+    margin: 0;
+    border-radius: 0;
+    font-size: 13px;
+    line-height: 1.6;
+    background: #1a1a2e;
+  }
+
+  .tab-btn {
+    transition: all 0.2s ease;
+    border-bottom: 2px solid transparent;
+  }
+  .tab-btn.active {
+    border-bottom-color: #1e3a5f;
+    color: #1e3a5f;
+    font-weight: 600;
+  }
+  .tab-btn:not(.active) {
+    color: #6b7280;
+  }
+  .tab-btn:not(.active):hover {
+    color: #3d5a80;
+  }
+
+  .annotation-before {
+    background: #fef2f2;
+    border-left: 3px solid #b91c1c;
+    color: #7f1d1d;
+  }
+  .annotation-after {
+    background: #eff6ff;
+    border-left: 3px solid #1e3a5f;
+    color: #1e3a5f;
+  }
+
+  .diff-card {
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  .diff-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(30, 58, 95, 0.12);
+  }
+
+  .copy-btn {
+    transition: all 0.15s ease;
+  }
+  .copy-btn:hover { background: #1e3a5f; color: #fff; }
+  .copy-btn.copied { background: #1e3a5f; color: #fff; }
+
+  .stat-number {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .line-count-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 9999px;
+  }
+</style>
+</head>
+<body class="bg-white text-warm-800 min-h-screen">
+
+<!-- ヘッダー -->
+<header class="bg-navy-600 text-white">
+  <div class="max-w-7xl mx-auto px-6 py-5 flex items-center justify-between">
+    <div>
+      <p class="text-navy-200 text-sm tracking-wider mb-1">05_crud-implementation</p>
+      <h1 class="text-2xl font-bold tracking-tight">CRUD実装 -- API仕様からCRUDルーター生成</h1>
+    </div>
+    <a href="../showcase/index.html"
+       class="text-sm text-navy-200 hover:text-white border border-navy-400 hover:border-white rounded px-4 py-2 transition-colors">
+      Showcase に戻る
+    </a>
+  </div>
+</header>
+
+<!-- サブヘッダー: テーマ概要 -->
+<section class="bg-navy-50 border-b border-navy-100">
+  <div class="max-w-7xl mx-auto px-6 py-6">
+    <p class="text-warm-700 leading-relaxed max-w-3xl">
+      ブログ記事APIの仕様書とPrismaスキーマを入力に、Hono + Zod で完全なCRUDルーターを生成するデモ。
+      TODO だらけのスケルトンを人間が1つずつ埋めていく作業を、AIが一発で完了させる。
+    </p>
+    <div class="flex gap-8 mt-4">
+      <div class="flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full bg-warm-400"></span>
+        <span class="text-sm text-warm-500">所要時間 15分</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full bg-navy-400"></span>
+        <span class="text-sm text-warm-500">Hono + Prisma + Zod</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full bg-navy-400"></span>
+        <span class="text-sm text-warm-500">TypeScript</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 数値サマリー -->
+<section class="max-w-7xl mx-auto px-6 py-8">
+  <div class="grid grid-cols-4 gap-4">
+    <div class="bg-warm-50 rounded-lg p-5 text-center border border-warm-200">
+      <p class="stat-number text-3xl font-bold text-warm-500">66</p>
+      <p class="text-sm text-warm-400 mt-1">Before 行数</p>
+    </div>
+    <div class="bg-navy-50 rounded-lg p-5 text-center border border-navy-100">
+      <p class="stat-number text-3xl font-bold text-navy-600">329</p>
+      <p class="text-sm text-warm-400 mt-1">After 行数</p>
+    </div>
+    <div class="bg-navy-50 rounded-lg p-5 text-center border border-navy-100">
+      <p class="stat-number text-3xl font-bold text-navy-600">5</p>
+      <p class="text-sm text-warm-400 mt-1">エンドポイント</p>
+    </div>
+    <div class="bg-navy-50 rounded-lg p-5 text-center border border-navy-100">
+      <p class="stat-number text-3xl font-bold text-navy-600">5x</p>
+      <p class="text-sm text-warm-400 mt-1">コード量の増加</p>
+    </div>
+  </div>
+</section>
+
+<!-- Before / After 比較 -->
+<section class="max-w-7xl mx-auto px-6 pb-10">
+  <div class="flex items-center gap-4 mb-6">
+    <h2 class="text-xl font-bold text-navy-600">Before / After 比較</h2>
+    <div class="h-px flex-1 bg-warm-200"></div>
+  </div>
+
+  <!-- タブ切替 -->
+  <div class="flex gap-1 mb-0 border-b border-warm-200">
+    <button class="tab-btn active px-5 py-3 text-sm" data-tab="split" onclick="switchTab('split')">
+      並列表示
+    </button>
+    <button class="tab-btn px-5 py-3 text-sm" data-tab="before" onclick="switchTab('before')">
+      Before のみ
+    </button>
+    <button class="tab-btn px-5 py-3 text-sm" data-tab="after" onclick="switchTab('after')">
+      After のみ
+    </button>
+  </div>
+
+  <!-- 並列表示 -->
+  <div id="tab-split" class="tab-content">
+    <div class="grid grid-cols-2 gap-0">
+      <!-- Before -->
+      <div class="border border-warm-200 border-r-0">
+        <div class="flex items-center justify-between bg-warm-100 px-4 py-3 border-b border-warm-200">
+          <div class="flex items-center gap-3">
+            <span class="text-sm font-semibold text-warm-600">before/routes.ts</span>
+            <span class="line-count-badge bg-warm-200 text-warm-600">66行</span>
+          </div>
+          <span class="text-xs text-warm-400">TODO x 17</span>
+        </div>
+        <div class="code-scroll">
+<pre><code class="language-typescript">import { Hono } from 'hono'
+import { PrismaClient } from '@prisma/client'
+
+const app = new Hono()
+const prisma = new PrismaClient()
+
+// ---------------------------------------------------------------------------
+// 記事一覧取得
+// TODO: クエリパラメータのバリデーション（cursor, take, status, tag）
+// TODO: カーソルベースのページネーション
+// TODO: status / tag によるフィルタリング
+// TODO: 一覧では content を除外する
+// TODO: エラーレスポンスの統一フォーマット
+// ---------------------------------------------------------------------------
+app.get('/posts', async (c) =&gt; {
+  // TODO: 実装する
+  return c.json({ data: [], nextCursor: null })
+})
+
+// ---------------------------------------------------------------------------
+// 記事詳細取得
+// TODO: author, tags をネストして返す
+// TODO: 存在しない場合は 404
+// ---------------------------------------------------------------------------
+app.get('/posts/:id', async (c) =&gt; {
+  // TODO: 実装する
+  return c.json({})
+})
+
+// ---------------------------------------------------------------------------
+// 記事作成
+// TODO: リクエストボディの Zod バリデーション
+// TODO: title からの slug 自動生成（ケバブケース変換 + 重複時サフィックス付与）
+// TODO: authorId の存在確認
+// TODO: tags の connectOrCreate 処理
+// TODO: 成功時 201
+// ---------------------------------------------------------------------------
+app.post('/posts', async (c) =&gt; {
+  // TODO: 実装する
+  return c.json({}, 201)
+})
+
+// ---------------------------------------------------------------------------
+// 記事更新
+// TODO: リクエストボディの Zod バリデーション（全フィールド任意）
+// TODO: 記事の存在確認
+// TODO: title 変更時の slug 再生成
+// TODO: tags 差し替え（既存を全解除 → 新規接続）
+// ---------------------------------------------------------------------------
+app.put('/posts/:id', async (c) =&gt; {
+  // TODO: 実装する
+  return c.json({})
+})
+
+// ---------------------------------------------------------------------------
+// 記事削除
+// TODO: 記事の存在確認
+// TODO: 削除処理
+// TODO: 204 レスポンス（ボディなし）
+// ---------------------------------------------------------------------------
+app.delete('/posts/:id', async (c) =&gt; {
+  // TODO: 実装する
+  return c.body(null, 204)
+})
+
+export default app</code></pre>
+        </div>
+        <!-- Before 注釈 -->
+        <div class="p-4 space-y-2 border-t border-warm-200 bg-white">
+          <div class="annotation-before text-xs px-3 py-2 rounded-r">
+            バリデーション未導入 -- 不正なリクエストが素通りする
+          </div>
+          <div class="annotation-before text-xs px-3 py-2 rounded-r">
+            ページネーション方針未定 -- 全件取得のまま
+          </div>
+          <div class="annotation-before text-xs px-3 py-2 rounded-r">
+            slug 生成ロジックなし -- URL設計が宙に浮いている
+          </div>
+          <div class="annotation-before text-xs px-3 py-2 rounded-r">
+            エラーハンドリング皆無 -- 400/404/500 の区別がない
+          </div>
+          <div class="annotation-before text-xs px-3 py-2 rounded-r">
+            タグのリレーション操作が未着手
+          </div>
+        </div>
+      </div>
+
+      <!-- After -->
+      <div class="border border-warm-200">
+        <div class="flex items-center justify-between bg-navy-50 px-4 py-3 border-b border-navy-100">
+          <div class="flex items-center gap-3">
+            <span class="text-sm font-semibold text-navy-600">expected-output/routes.ts</span>
+            <span class="line-count-badge bg-navy-100 text-navy-600">329行</span>
+          </div>
+          <span class="text-xs text-navy-400">完全実装済み</span>
+        </div>
+        <div class="code-scroll">
+<pre><code class="language-typescript">import { Hono } from 'hono'
+import { PrismaClient, Prisma } from '@prisma/client'
+import { z } from 'zod'
+
+const app = new Hono()
+const prisma = new PrismaClient()
+
+// ---------------------------------------------------------------------------
+// Zod バリデーションスキーマ
+// ---------------------------------------------------------------------------
+
+const PostStatus = z.enum(['draft', 'published'])
+
+const ListPostsQuerySchema = z.object({
+  cursor: z.string().optional(),
+  take: z.coerce.number().int().min(1).max(100).default(20),
+  status: PostStatus.optional(),
+  tag: z.string().optional(),
+})
+
+const CreatePostBodySchema = z.object({
+  title: z.string().min(1, 'タイトルは必須です').max(100, 'タイトルは100文字以内です'),
+  content: z.string().min(1, '本文は必須です'),
+  status: PostStatus.default('draft'),
+  authorId: z.string().min(1, '著者IDは必須です'),
+  tags: z.array(z.string()).default([]),
+})
+
+const UpdatePostBodySchema = z.object({
+  title: z.string().min(1).max(100, 'タイトルは100文字以内です').optional(),
+  content: z.string().min(1).optional(),
+  status: PostStatus.optional(),
+  tags: z.array(z.string()).optional(),
+})
+
+// ---------------------------------------------------------------------------
+// エラーレスポンス
+// ---------------------------------------------------------------------------
+
+type ErrorCode =
+  | 'VALIDATION_ERROR'
+  | 'INVALID_AUTHOR'
+  | 'NOT_FOUND'
+  | 'SLUG_CONFLICT'
+  | 'INTERNAL_ERROR'
+
+const errorResponse = (code: ErrorCode, message: string) =&gt; ({
+  error: { code, message },
+})
+
+// ---------------------------------------------------------------------------
+// slug 生成
+// ---------------------------------------------------------------------------
+
+const toSlug = (title: string): string =&gt;
+  title
+    .toLowerCase()
+    .replace(/[^a-z0-9\u3040-\u309f\u30a0-\u30ff\u4e00-\u9faf]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/-{2,}/g, '-')
+
+// 重複があればサフィックスを付けて一意にする
+const resolveUniqueSlug = async (
+  base: string,
+  excludeId?: string,
+): Promise&lt;string&gt; =&gt; {
+  const candidates = [base, ...Array.from({ length: 9 }, (_, i) =&gt; `${base}-${i + 2}`)]
+
+  for (const slug of candidates) {
+    const hit = await prisma.post.findUnique({
+      where: { slug },
+      select: { id: true },
+    })
+    if (hit === null || (excludeId !== undefined &amp;&amp; hit.id === excludeId)) {
+      return slug
+    }
+  }
+
+  throw new Error('SLUG_CONFLICT')
+}
+
+// ---------------------------------------------------------------------------
+// Prisma の共通 select / include 定義
+// ---------------------------------------------------------------------------
+
+const authorAndTags = {
+  author: { select: { id: true, name: true } },
+  tags: { select: { id: true, name: true } },
+} as const
+
+const listSelect = {
+  id: true,
+  title: true,
+  slug: true,
+  status: true,
+  createdAt: true,
+  updatedAt: true,
+  ...authorAndTags,
+} as const
+
+// ---------------------------------------------------------------------------
+// PostStatus の enum 変換
+// ---------------------------------------------------------------------------
+
+const toPrismaStatus = (s: string): 'DRAFT' | 'PUBLISHED' =&gt;
+  s === 'published' ? 'PUBLISHED' : 'DRAFT'
+
+const toApiStatus = (s: 'DRAFT' | 'PUBLISHED'): string =&gt;
+  s === 'PUBLISHED' ? 'published' : 'draft'
+
+const formatPost = &lt;T extends { status: 'DRAFT' | 'PUBLISHED' }&gt;(
+  post: T,
+): Omit&lt;T, 'status'&gt; &amp; { status: string } =&gt; ({
+  ...post,
+  status: toApiStatus(post.status),
+})
+
+// ---------------------------------------------------------------------------
+// ルートハンドラ
+// ---------------------------------------------------------------------------
+
+// 記事一覧取得
+app.get('/posts', async (c) =&gt; {
+  try {
+    const parsed = ListPostsQuerySchema.safeParse(c.req.query())
+    if (!parsed.success) {
+      return c.json(
+        errorResponse('VALIDATION_ERROR', parsed.error.issues[0].message),
+        400,
+      )
+    }
+
+    const { cursor, take, status, tag } = parsed.data
+
+    const where: Prisma.PostWhereInput = {
+      ...(status !== undefined ? { status: toPrismaStatus(status) } : {}),
+      ...(tag !== undefined ? { tags: { some: { name: tag } } } : {}),
+    }
+
+    // take + 1 件取得して次ページの有無を判定
+    const posts = await prisma.post.findMany({
+      where,
+      select: listSelect,
+      take: take + 1,
+      ...(cursor !== undefined ? { cursor: { id: cursor }, skip: 1 } : {}),
+      orderBy: { createdAt: 'desc' },
+    })
+
+    const hasNext = posts.length &gt; take
+    const page = hasNext ? posts.slice(0, take) : posts
+    const nextCursor = hasNext ? page[page.length - 1].id : null
+
+    return c.json({ data: page.map(formatPost), nextCursor })
+  } catch (err) {
+    console.error('記事一覧取得に失敗:', err)
+    return c.json(errorResponse('INTERNAL_ERROR', '...'), 500)
+  }
+})
+
+// ... 以降 GET/:id, POST, PUT/:id, DELETE/:id も同様に完全実装
+// （全文は右パネルをスクロールして確認）</code></pre>
+        </div>
+        <!-- After 注釈 -->
+        <div class="p-4 space-y-2 border-t border-navy-100 bg-white">
+          <div class="annotation-after text-xs px-3 py-2 rounded-r">
+            Zod で全入力を検証 -- 仕様書の制約がそのままコードに写像されている
+          </div>
+          <div class="annotation-after text-xs px-3 py-2 rounded-r">
+            カーソルベースのページネーション -- take+1 パターンで次ページ判定
+          </div>
+          <div class="annotation-after text-xs px-3 py-2 rounded-r">
+            slug 自動生成 + 重複解決 -- URL設計が自動的に担保される
+          </div>
+          <div class="annotation-after text-xs px-3 py-2 rounded-r">
+            400 / 404 / 409 / 500 を使い分ける統一エラーフォーマット
+          </div>
+          <div class="annotation-after text-xs px-3 py-2 rounded-r">
+            connectOrCreate + set:[] でタグのリレーション操作を完備
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Before のみ -->
+  <div id="tab-before" class="tab-content hidden">
+    <div class="border border-warm-200 rounded-b-lg overflow-hidden">
+      <div class="flex items-center justify-between bg-warm-100 px-4 py-3 border-b border-warm-200">
+        <div class="flex items-center gap-3">
+          <span class="text-sm font-semibold text-warm-600">before/routes.ts</span>
+          <span class="line-count-badge bg-warm-200 text-warm-600">66行</span>
+        </div>
+      </div>
+      <div class="code-scroll" style="max-height:640px">
+<pre><code class="language-typescript">import { Hono } from 'hono'
+import { PrismaClient } from '@prisma/client'
+
+const app = new Hono()
+const prisma = new PrismaClient()
+
+// ---------------------------------------------------------------------------
+// 記事一覧取得
+// TODO: クエリパラメータのバリデーション（cursor, take, status, tag）
+// TODO: カーソルベースのページネーション
+// TODO: status / tag によるフィルタリング
+// TODO: 一覧では content を除外する
+// TODO: エラーレスポンスの統一フォーマット
+// ---------------------------------------------------------------------------
+app.get('/posts', async (c) =&gt; {
+  // TODO: 実装する
+  return c.json({ data: [], nextCursor: null })
+})
+
+// ---------------------------------------------------------------------------
+// 記事詳細取得
+// TODO: author, tags をネストして返す
+// TODO: 存在しない場合は 404
+// ---------------------------------------------------------------------------
+app.get('/posts/:id', async (c) =&gt; {
+  // TODO: 実装する
+  return c.json({})
+})
+
+// ---------------------------------------------------------------------------
+// 記事作成
+// TODO: リクエストボディの Zod バリデーション
+// TODO: title からの slug 自動生成（ケバブケース変換 + 重複時サフィックス付与）
+// TODO: authorId の存在確認
+// TODO: tags の connectOrCreate 処理
+// TODO: 成功時 201
+// ---------------------------------------------------------------------------
+app.post('/posts', async (c) =&gt; {
+  // TODO: 実装する
+  return c.json({}, 201)
+})
+
+// ---------------------------------------------------------------------------
+// 記事更新
+// TODO: リクエストボディの Zod バリデーション（全フィールド任意）
+// TODO: 記事の存在確認
+// TODO: title 変更時の slug 再生成
+// TODO: tags 差し替え（既存を全解除 → 新規接続）
+// ---------------------------------------------------------------------------
+app.put('/posts/:id', async (c) =&gt; {
+  // TODO: 実装する
+  return c.json({})
+})
+
+// ---------------------------------------------------------------------------
+// 記事削除
+// TODO: 記事の存在確認
+// TODO: 削除処理
+// TODO: 204 レスポンス（ボディなし）
+// ---------------------------------------------------------------------------
+app.delete('/posts/:id', async (c) =&gt; {
+  // TODO: 実装する
+  return c.body(null, 204)
+})
+
+export default app</code></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- After のみ -->
+  <div id="tab-after" class="tab-content hidden">
+    <div class="border border-navy-100 rounded-b-lg overflow-hidden">
+      <div class="flex items-center justify-between bg-navy-50 px-4 py-3 border-b border-navy-100">
+        <div class="flex items-center gap-3">
+          <span class="text-sm font-semibold text-navy-600">expected-output/routes.ts</span>
+          <span class="line-count-badge bg-navy-100 text-navy-600">329行</span>
+        </div>
+      </div>
+      <div class="code-scroll" style="max-height:640px">
+<pre><code class="language-typescript">import { Hono } from 'hono'
+import { PrismaClient, Prisma } from '@prisma/client'
+import { z } from 'zod'
+
+const app = new Hono()
+const prisma = new PrismaClient()
+
+// ---------------------------------------------------------------------------
+// Zod バリデーションスキーマ
+// ---------------------------------------------------------------------------
+
+const PostStatus = z.enum(['draft', 'published'])
+
+const ListPostsQuerySchema = z.object({
+  cursor: z.string().optional(),
+  take: z.coerce.number().int().min(1).max(100).default(20),
+  status: PostStatus.optional(),
+  tag: z.string().optional(),
+})
+
+const CreatePostBodySchema = z.object({
+  title: z.string().min(1, 'タイトルは必須です').max(100, 'タイトルは100文字以内です'),
+  content: z.string().min(1, '本文は必須です'),
+  status: PostStatus.default('draft'),
+  authorId: z.string().min(1, '著者IDは必須です'),
+  tags: z.array(z.string()).default([]),
+})
+
+const UpdatePostBodySchema = z.object({
+  title: z.string().min(1).max(100, 'タイトルは100文字以内です').optional(),
+  content: z.string().min(1).optional(),
+  status: PostStatus.optional(),
+  tags: z.array(z.string()).optional(),
+})
+
+// ---------------------------------------------------------------------------
+// エラーレスポンス
+// ---------------------------------------------------------------------------
+
+type ErrorCode =
+  | 'VALIDATION_ERROR'
+  | 'INVALID_AUTHOR'
+  | 'NOT_FOUND'
+  | 'SLUG_CONFLICT'
+  | 'INTERNAL_ERROR'
+
+const errorResponse = (code: ErrorCode, message: string) =&gt; ({
+  error: { code, message },
+})
+
+// ---------------------------------------------------------------------------
+// slug 生成
+// ---------------------------------------------------------------------------
+
+const toSlug = (title: string): string =&gt;
+  title
+    .toLowerCase()
+    .replace(/[^a-z0-9\u3040-\u309f\u30a0-\u30ff\u4e00-\u9faf]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/-{2,}/g, '-')
+
+const resolveUniqueSlug = async (
+  base: string,
+  excludeId?: string,
+): Promise&lt;string&gt; =&gt; {
+  const candidates = [base, ...Array.from({ length: 9 }, (_, i) =&gt; `${base}-${i + 2}`)]
+
+  for (const slug of candidates) {
+    const hit = await prisma.post.findUnique({
+      where: { slug },
+      select: { id: true },
+    })
+    if (hit === null || (excludeId !== undefined &amp;&amp; hit.id === excludeId)) {
+      return slug
+    }
+  }
+
+  throw new Error('SLUG_CONFLICT')
+}
+
+// ---------------------------------------------------------------------------
+// Prisma の共通 select / include 定義
+// ---------------------------------------------------------------------------
+
+const authorAndTags = {
+  author: { select: { id: true, name: true } },
+  tags: { select: { id: true, name: true } },
+} as const
+
+const listSelect = {
+  id: true,
+  title: true,
+  slug: true,
+  status: true,
+  createdAt: true,
+  updatedAt: true,
+  ...authorAndTags,
+} as const
+
+// ---------------------------------------------------------------------------
+// PostStatus の enum 変換
+// ---------------------------------------------------------------------------
+
+const toPrismaStatus = (s: string): 'DRAFT' | 'PUBLISHED' =&gt;
+  s === 'published' ? 'PUBLISHED' : 'DRAFT'
+
+const toApiStatus = (s: 'DRAFT' | 'PUBLISHED'): string =&gt;
+  s === 'PUBLISHED' ? 'published' : 'draft'
+
+const formatPost = &lt;T extends { status: 'DRAFT' | 'PUBLISHED' }&gt;(
+  post: T,
+): Omit&lt;T, 'status'&gt; &amp; { status: string } =&gt; ({
+  ...post,
+  status: toApiStatus(post.status),
+})
+
+// ---------------------------------------------------------------------------
+// ルートハンドラ
+// ---------------------------------------------------------------------------
+
+app.get('/posts', async (c) =&gt; {
+  try {
+    const parsed = ListPostsQuerySchema.safeParse(c.req.query())
+    if (!parsed.success) {
+      return c.json(
+        errorResponse('VALIDATION_ERROR', parsed.error.issues[0].message),
+        400,
+      )
+    }
+
+    const { cursor, take, status, tag } = parsed.data
+
+    const where: Prisma.PostWhereInput = {
+      ...(status !== undefined ? { status: toPrismaStatus(status) } : {}),
+      ...(tag !== undefined ? { tags: { some: { name: tag } } } : {}),
+    }
+
+    const posts = await prisma.post.findMany({
+      where,
+      select: listSelect,
+      take: take + 1,
+      ...(cursor !== undefined ? { cursor: { id: cursor }, skip: 1 } : {}),
+      orderBy: { createdAt: 'desc' },
+    })
+
+    const hasNext = posts.length &gt; take
+    const page = hasNext ? posts.slice(0, take) : posts
+    const nextCursor = hasNext ? page[page.length - 1].id : null
+
+    return c.json({ data: page.map(formatPost), nextCursor })
+  } catch (err) {
+    console.error('記事一覧取得に失敗:', err)
+    return c.json(errorResponse('INTERNAL_ERROR', 'サーバー内部エラーが発生しました'), 500)
+  }
+})
+
+app.get('/posts/:id', async (c) =&gt; {
+  try {
+    const post = await prisma.post.findUnique({
+      where: { id: c.req.param('id') },
+      include: authorAndTags,
+    })
+
+    if (post === null) {
+      return c.json(errorResponse('NOT_FOUND', '指定された記事が見つかりません'), 404)
+    }
+
+    return c.json({ data: formatPost(post) })
+  } catch (err) {
+    console.error('記事詳細取得に失敗:', err)
+    return c.json(errorResponse('INTERNAL_ERROR', 'サーバー内部エラーが発生しました'), 500)
+  }
+})
+
+app.post('/posts', async (c) =&gt; {
+  try {
+    const parsed = CreatePostBodySchema.safeParse(await c.req.json())
+    if (!parsed.success) {
+      return c.json(
+        errorResponse('VALIDATION_ERROR', parsed.error.issues[0].message),
+        400,
+      )
+    }
+
+    const { title, content, status, authorId, tags } = parsed.data
+
+    const author = await prisma.author.findUnique({
+      where: { id: authorId },
+      select: { id: true },
+    })
+    if (author === null) {
+      return c.json(errorResponse('INVALID_AUTHOR', '指定された著者が存在しません'), 400)
+    }
+
+    let slug: string
+    try {
+      slug = await resolveUniqueSlug(toSlug(title))
+    } catch {
+      return c.json(
+        errorResponse('SLUG_CONFLICT', 'slug の生成に失敗しました。タイトルを変更してください'),
+        409,
+      )
+    }
+
+    const post = await prisma.post.create({
+      data: {
+        title,
+        content,
+        slug,
+        status: toPrismaStatus(status),
+        author: { connect: { id: authorId } },
+        tags: {
+          connectOrCreate: tags.map((name) =&gt; ({
+            where: { name },
+            create: { name },
+          })),
+        },
+      },
+      include: authorAndTags,
+    })
+
+    return c.json({ data: formatPost(post) }, 201)
+  } catch (err) {
+    console.error('記事作成に失敗:', err)
+    return c.json(errorResponse('INTERNAL_ERROR', 'サーバー内部エラーが発生しました'), 500)
+  }
+})
+
+app.put('/posts/:id', async (c) =&gt; {
+  try {
+    const parsed = UpdatePostBodySchema.safeParse(await c.req.json())
+    if (!parsed.success) {
+      return c.json(
+        errorResponse('VALIDATION_ERROR', parsed.error.issues[0].message),
+        400,
+      )
+    }
+
+    const { title, content, status, tags } = parsed.data
+    const postId = c.req.param('id')
+
+    const existing = await prisma.post.findUnique({
+      where: { id: postId },
+      select: { id: true },
+    })
+    if (existing === null) {
+      return c.json(errorResponse('NOT_FOUND', '指定された記事が見つかりません'), 404)
+    }
+
+    let updateData: Prisma.PostUpdateInput = {
+      ...(content !== undefined ? { content } : {}),
+      ...(status !== undefined ? { status: toPrismaStatus(status) } : {}),
+    }
+
+    if (title !== undefined) {
+      let slug: string
+      try {
+        slug = await resolveUniqueSlug(toSlug(title), postId)
+      } catch {
+        return c.json(
+          errorResponse('SLUG_CONFLICT', 'slug の生成に失敗しました。タイトルを変更してください'),
+          409,
+        )
+      }
+      updateData = { ...updateData, title, slug }
+    }
+
+    if (tags !== undefined) {
+      updateData = {
+        ...updateData,
+        tags: {
+          set: [],
+          connectOrCreate: tags.map((name) =&gt; ({
+            where: { name },
+            create: { name },
+          })),
+        },
+      }
+    }
+
+    const updated = await prisma.post.update({
+      where: { id: postId },
+      data: updateData,
+      include: authorAndTags,
+    })
+
+    return c.json({ data: formatPost(updated) })
+  } catch (err) {
+    console.error('記事更新に失敗:', err)
+    return c.json(errorResponse('INTERNAL_ERROR', 'サーバー内部エラーが発生しました'), 500)
+  }
+})
+
+app.delete('/posts/:id', async (c) =&gt; {
+  try {
+    const postId = c.req.param('id')
+
+    const existing = await prisma.post.findUnique({
+      where: { id: postId },
+      select: { id: true },
+    })
+    if (existing === null) {
+      return c.json(errorResponse('NOT_FOUND', '指定された記事が見つかりません'), 404)
+    }
+
+    await prisma.post.delete({ where: { id: postId } })
+
+    return c.body(null, 204)
+  } catch (err) {
+    console.error('記事削除に失敗:', err)
+    return c.json(errorResponse('INTERNAL_ERROR', 'サーバー内部エラーが発生しました'), 500)
+  }
+})
+
+export default app</code></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 差分ハイライト -->
+<section class="bg-warm-50 border-t border-b border-warm-200">
+  <div class="max-w-7xl mx-auto px-6 py-10">
+    <div class="flex items-center gap-4 mb-8">
+      <h2 class="text-xl font-bold text-navy-600">主要な差分</h2>
+      <div class="h-px flex-1 bg-warm-200"></div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+      <!-- 差分カード 1 -->
+      <div class="diff-card bg-white rounded-lg border border-warm-200 overflow-hidden">
+        <div class="bg-navy-600 px-4 py-3">
+          <p class="text-sm font-semibold text-white">Zod バリデーション</p>
+        </div>
+        <div class="p-4">
+          <div class="text-xs mb-3">
+            <span class="inline-block bg-warm-100 text-warm-600 px-2 py-0.5 rounded mr-2">Before</span>
+            バリデーション未導入。req.body をそのまま信用
+          </div>
+          <div class="text-xs">
+            <span class="inline-block bg-navy-50 text-navy-600 px-2 py-0.5 rounded mr-2">After</span>
+            3つのZodスキーマで入力を網羅。safeParse + 日本語エラーメッセージ
+          </div>
+          <div class="mt-3 bg-navy-50 rounded px-3 py-2">
+            <code class="text-xs text-navy-700">z.string().min(1).max(100)</code>
+          </div>
+        </div>
+      </div>
+
+      <!-- 差分カード 2 -->
+      <div class="diff-card bg-white rounded-lg border border-warm-200 overflow-hidden">
+        <div class="bg-navy-600 px-4 py-3">
+          <p class="text-sm font-semibold text-white">カーソルベースのページネーション</p>
+        </div>
+        <div class="p-4">
+          <div class="text-xs mb-3">
+            <span class="inline-block bg-warm-100 text-warm-600 px-2 py-0.5 rounded mr-2">Before</span>
+            空配列を返すだけ。ページ送り不可
+          </div>
+          <div class="text-xs">
+            <span class="inline-block bg-navy-50 text-navy-600 px-2 py-0.5 rounded mr-2">After</span>
+            take+1件取得で次ページ判定。nextCursor を返却
+          </div>
+          <div class="mt-3 bg-navy-50 rounded px-3 py-2">
+            <code class="text-xs text-navy-700">take: take + 1 → hasNext判定</code>
+          </div>
+        </div>
+      </div>
+
+      <!-- 差分カード 3 -->
+      <div class="diff-card bg-white rounded-lg border border-warm-200 overflow-hidden">
+        <div class="bg-navy-600 px-4 py-3">
+          <p class="text-sm font-semibold text-white">slug 自動生成</p>
+        </div>
+        <div class="p-4">
+          <div class="text-xs mb-3">
+            <span class="inline-block bg-warm-100 text-warm-600 px-2 py-0.5 rounded mr-2">Before</span>
+            slug に関するコードが一切ない
+          </div>
+          <div class="text-xs">
+            <span class="inline-block bg-navy-50 text-navy-600 px-2 py-0.5 rounded mr-2">After</span>
+            toSlug + resolveUniqueSlug で生成。重複時は -2, -3 サフィックス
+          </div>
+          <div class="mt-3 bg-navy-50 rounded px-3 py-2">
+            <code class="text-xs text-navy-700">resolveUniqueSlug(toSlug(title))</code>
+          </div>
+        </div>
+      </div>
+
+      <!-- 差分カード 4 -->
+      <div class="diff-card bg-white rounded-lg border border-warm-200 overflow-hidden">
+        <div class="bg-navy-600 px-4 py-3">
+          <p class="text-sm font-semibold text-white">エラーハンドリング</p>
+        </div>
+        <div class="p-4">
+          <div class="text-xs mb-3">
+            <span class="inline-block bg-warm-100 text-warm-600 px-2 py-0.5 rounded mr-2">Before</span>
+            ステータスコードの使い分けなし
+          </div>
+          <div class="text-xs">
+            <span class="inline-block bg-navy-50 text-navy-600 px-2 py-0.5 rounded mr-2">After</span>
+            ErrorCode型で5種を定義。400/404/409/500 を適切に分岐
+          </div>
+          <div class="mt-3 bg-navy-50 rounded px-3 py-2">
+            <code class="text-xs text-navy-700">{ error: { code, message } }</code>
+          </div>
+        </div>
+      </div>
+
+      <!-- 差分カード 5 -->
+      <div class="diff-card bg-white rounded-lg border border-warm-200 overflow-hidden">
+        <div class="bg-navy-600 px-4 py-3">
+          <p class="text-sm font-semibold text-white">タグのリレーション操作</p>
+        </div>
+        <div class="p-4">
+          <div class="text-xs mb-3">
+            <span class="inline-block bg-warm-100 text-warm-600 px-2 py-0.5 rounded mr-2">Before</span>
+            多対多リレーションに手つかず
+          </div>
+          <div class="text-xs">
+            <span class="inline-block bg-navy-50 text-navy-600 px-2 py-0.5 rounded mr-2">After</span>
+            作成時 connectOrCreate、更新時 set:[] + connectOrCreate
+          </div>
+          <div class="mt-3 bg-navy-50 rounded px-3 py-2">
+            <code class="text-xs text-navy-700">tags: { set: [], connectOrCreate }</code>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- プロンプトセクション -->
+<section class="max-w-7xl mx-auto px-6 py-10">
+  <div class="flex items-center gap-4 mb-6">
+    <h2 class="text-xl font-bold text-navy-600">使用したプロンプト</h2>
+    <div class="h-px flex-1 bg-warm-200"></div>
+  </div>
+
+  <p class="text-warm-600 text-sm mb-4 max-w-2xl">
+    以下のプロンプトをClaude Codeに投入する。input/ フォルダのAPI仕様書とPrismaスキーマを同時に読み込ませることで、
+    整合性の取れたCRUDルーターが生成される。
+  </p>
+
+  <div class="relative border border-warm-200 rounded-lg overflow-hidden">
+    <div class="flex items-center justify-between bg-warm-100 px-4 py-3 border-b border-warm-200">
+      <span class="text-sm font-semibold text-warm-600">with-ai/prompt.md</span>
+      <button id="copyPromptBtn"
+              onclick="copyPrompt()"
+              class="copy-btn text-xs border border-navy-600 text-navy-600 px-3 py-1.5 rounded">
+        コピーする
+      </button>
+    </div>
+    <div class="code-scroll" style="max-height:480px">
+<pre><code class="language-markdown" id="promptContent"># CRUD ルーター実装
+
+## コンテキスト
+
+ブログ記事APIのCRUDルーターを Hono + Prisma + Zod で実装する。
+仕様とDBスキーマは以下の2ファイルに定義済み。
+
+- API仕様書: `./input/api-spec.md`
+- Prismaスキーマ: `./input/schema.prisma`
+
+## ベースコード
+
+`before/routes.ts` にルート定義のスケルトンがある。TODOコメントを全て実装に置き換えること。
+
+## 技術スタック
+
+- Hono（Expressではない）
+- Prisma Client
+- Zod（バリデーション）
+- TypeScript（any 禁止）
+
+## 実装要件
+
+1. Zod バリデーション
+   - 仕様書の制約（文字数制限、必須/任意、enum値）をすべてスキーマに反映
+   - safeParse で検証し、失敗時は最初のエラーメッセージを返す
+
+2. カーソルベースのページネーション
+   - take + 1 件取得して次ページの有無を判定
+   - nextCursor を末尾レコードの id で返す
+
+3. slug 自動生成
+   - タイトルを小文字化 → 英数字と日本語以外をハイフンに置換 → 先頭末尾・連続ハイフンを除去
+   - 重複時は末尾に -2, -3 ... のサフィックスを付与
+
+4. タグ管理
+   - 作成時: connectOrCreate で既存タグを再利用、なければ新規作成
+   - 更新時: set: [] で全解除してから connectOrCreate で再接続
+
+5. エラーレスポンス
+   - `{ error: { code, message } }` の統一フォーマット
+   - 400 VALIDATION_ERROR / 400 INVALID_AUTHOR / 404 NOT_FOUND / 409 SLUG_CONFLICT / 500 INTERNAL_ERROR
+
+6. Prisma の enum 変換
+   - API側 "draft"/"published" と Prisma側 DRAFT/PUBLISHED を相互変換するヘルパーを用意
+   - レスポンス時に formatPost で変換
+
+7. 一覧の content 除外
+   - findMany では select を使い、content を含めない
+
+## 出力
+
+`routes.ts` を1ファイルで出力。import 文から含めること。
+コメントは日本語で、変数名・関数名は英語。</code></pre>
+    </div>
+  </div>
+</section>
+
+<!-- デモ手順 -->
+<section class="bg-navy-50 border-t border-navy-100">
+  <div class="max-w-7xl mx-auto px-6 py-10">
+    <div class="flex items-center gap-4 mb-8">
+      <h2 class="text-xl font-bold text-navy-600">デモ手順</h2>
+      <div class="h-px flex-1 bg-navy-100"></div>
+    </div>
+
+    <div class="grid grid-cols-5 gap-4">
+      <div class="bg-white rounded-lg border border-navy-100 p-5">
+        <div class="flex items-center gap-3 mb-3">
+          <span class="w-7 h-7 rounded-full bg-navy-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">1</span>
+          <p class="text-xs text-warm-400">2分</p>
+        </div>
+        <p class="text-sm text-warm-700 leading-relaxed">
+          input/ のAPI仕様書とPrismaスキーマを開き、ゴール像を把握する
+        </p>
+      </div>
+
+      <div class="bg-white rounded-lg border border-navy-100 p-5">
+        <div class="flex items-center gap-3 mb-3">
+          <span class="w-7 h-7 rounded-full bg-navy-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">2</span>
+          <p class="text-xs text-warm-400">2分</p>
+        </div>
+        <p class="text-sm text-warm-700 leading-relaxed">
+          before/routes.ts を見せ、ここからどう実装するか参加者に聞く
+        </p>
+      </div>
+
+      <div class="bg-white rounded-lg border border-navy-100 p-5">
+        <div class="flex items-center gap-3 mb-3">
+          <span class="w-7 h-7 rounded-full bg-navy-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">3</span>
+          <p class="text-xs text-warm-400">3分</p>
+        </div>
+        <p class="text-sm text-warm-700 leading-relaxed">
+          prompt.md をClaude Codeに投入して生成する
+        </p>
+      </div>
+
+      <div class="bg-white rounded-lg border border-navy-100 p-5">
+        <div class="flex items-center gap-3 mb-3">
+          <span class="w-7 h-7 rounded-full bg-navy-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">4</span>
+          <p class="text-xs text-warm-400">5分</p>
+        </div>
+        <p class="text-sm text-warm-700 leading-relaxed">
+          生成コードを expected-output と並べて比較する
+        </p>
+      </div>
+
+      <div class="bg-white rounded-lg border border-navy-100 p-5">
+        <div class="flex items-center gap-3 mb-3">
+          <span class="w-7 h-7 rounded-full bg-navy-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">5</span>
+          <p class="text-xs text-warm-400">3分</p>
+        </div>
+        <p class="text-sm text-warm-700 leading-relaxed">
+          Zodスキーマ、ページネーション、slug生成のポイントを解説
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- フッター -->
+<footer class="bg-navy-600 text-white">
+  <div class="max-w-7xl mx-auto px-6 py-6 flex items-center justify-between">
+    <p class="text-sm text-navy-200">05_crud-implementation -- AI開発デモ集</p>
+    <a href="../showcase/index.html"
+       class="text-sm bg-white text-navy-600 font-semibold px-5 py-2 rounded hover:bg-navy-50 transition-colors">
+      Showcase に戻る
+    </a>
+  </div>
+</footer>
+
+<script>
+function switchTab(tabName) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+  document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-' + tabName).classList.remove('hidden');
+  document.querySelector('[data-tab="' + tabName + '"]').classList.add('active');
+  Prism.highlightAll();
+}
+
+function copyPrompt() {
+  const el = document.getElementById('promptContent');
+  const text = el.textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('copyPromptBtn');
+    btn.textContent = 'コピー完了';
+    btn.classList.add('copied');
+    setTimeout(() => {
+      btn.textContent = 'コピーする';
+      btn.classList.remove('copied');
+    }, 2000);
+  });
+}
+</script>
+</body>
+</html>

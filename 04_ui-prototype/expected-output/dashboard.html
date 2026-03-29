@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>営業ダッシュボード - 営業管理システム</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            navy: {
+              50: '#eef2f7',
+              100: '#d4dde8',
+              200: '#a9bbcf',
+              300: '#7e99b6',
+              400: '#53779d',
+              500: '#2d5a84',
+              600: '#1e3a5f',
+              700: '#172e4c',
+              800: '#102239',
+              900: '#091626',
+            },
+          },
+        },
+      },
+    }
+  </script>
+  <style>
+    /* ダークモード切替トランジション */
+    html { transition: background-color 0.3s, color 0.3s; }
+
+    /* SVGグラフのツールチップ */
+    .chart-dot { cursor: pointer; transition: r 0.15s; }
+    .chart-dot:hover { r: 7; }
+    .chart-tooltip {
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+    .chart-dot:hover + .chart-tooltip,
+    .chart-dot:hover ~ .chart-tooltip-line { opacity: 1; }
+
+    /* テーブルソート用 */
+    .sort-indicator { opacity: 0.3; transition: opacity 0.15s; }
+    .sort-active .sort-indicator { opacity: 1; }
+    th[data-sort] { cursor: pointer; user-select: none; }
+    th[data-sort]:hover { background-color: rgba(30, 58, 95, 0.06); }
+    .dark th[data-sort]:hover { background-color: rgba(169, 187, 207, 0.08); }
+
+    /* テーブル横スクロール */
+    .table-scroll { -webkit-overflow-scrolling: touch; }
+
+    /* ダークモードトグルスイッチ */
+    .toggle-track {
+      width: 36px; height: 20px;
+      border-radius: 10px;
+      background: #a9bbcf;
+      position: relative;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .dark .toggle-track { background: #53779d; }
+    .toggle-thumb {
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      background: white;
+      position: absolute;
+      top: 2px; left: 2px;
+      transition: transform 0.2s;
+    }
+    .dark .toggle-thumb { transform: translateX(16px); }
+  </style>
+</head>
+<body class="bg-gray-50 text-gray-800 min-h-screen flex flex-col dark:bg-navy-900 dark:text-gray-200 transition-colors">
+
+  <!-- ヘッダー -->
+  <header class="bg-navy-600 text-white shadow-md z-30 relative dark:bg-navy-800" aria-label="サイトヘッダー">
+    <div class="flex items-center justify-between px-4 py-3 lg:px-6">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 bg-navy-400 rounded flex items-center justify-center text-sm font-bold">S</div>
+        <span class="text-lg font-semibold tracking-wide hidden sm:inline">営業管理システム</span>
+        <span class="text-lg font-semibold tracking-wide sm:hidden">営業管理</span>
+      </div>
+      <div class="flex items-center gap-3">
+        <div class="hidden md:block relative">
+          <input
+            type="text"
+            placeholder="検索..."
+            aria-label="サイト内検索"
+            class="bg-navy-700 text-white placeholder-navy-200 rounded px-3 py-1.5 text-sm w-56 focus:outline-none focus:ring-2 focus:ring-navy-300"
+          >
+        </div>
+        <!-- ダークモードトグル -->
+        <button id="darkToggle" aria-label="ダークモード切替" class="flex items-center gap-1.5 p-1.5 rounded hover:bg-navy-500 transition-colors">
+          <svg class="w-4 h-4 dark:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+          <svg class="w-4 h-4 hidden dark:block" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+          <div class="toggle-track"><div class="toggle-thumb"></div></div>
+        </button>
+        <button aria-label="通知" class="relative p-1.5 rounded hover:bg-navy-500 transition-colors">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+          </svg>
+        </button>
+        <div class="flex items-center gap-2">
+          <div class="w-8 h-8 bg-navy-400 rounded-full flex items-center justify-center text-sm font-medium">山</div>
+          <span class="text-sm hidden sm:inline">山田 太郎</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <div class="flex flex-1">
+    <!-- サイドバー -->
+    <aside class="hidden lg:flex flex-col w-60 bg-white border-r border-gray-200 shadow-sm dark:bg-navy-800 dark:border-navy-700" aria-label="メインナビゲーション">
+      <nav class="flex-1 py-4">
+        <ul class="space-y-1 px-3">
+          <li>
+            <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded bg-navy-600 text-white text-sm font-medium" aria-current="page">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1"/></svg>
+              ダッシュボード概要
+            </a>
+          </li>
+          <li>
+            <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded text-gray-600 hover:bg-gray-100 text-sm transition-colors dark:text-gray-300 dark:hover:bg-navy-700">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+              顧客管理
+            </a>
+          </li>
+          <li>
+            <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded text-gray-600 hover:bg-gray-100 text-sm transition-colors dark:text-gray-300 dark:hover:bg-navy-700">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+              商談管理
+            </a>
+          </li>
+          <li>
+            <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded text-gray-600 hover:bg-gray-100 text-sm transition-colors dark:text-gray-300 dark:hover:bg-navy-700">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+              レポート
+            </a>
+          </li>
+          <li>
+            <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded text-gray-600 hover:bg-gray-100 text-sm transition-colors dark:text-gray-300 dark:hover:bg-navy-700">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+              設定
+            </a>
+          </li>
+        </ul>
+      </nav>
+    </aside>
+
+    <!-- メインコンテンツ -->
+    <main class="flex-1 overflow-y-auto" aria-label="ダッシュボードメインコンテンツ">
+      <div class="max-w-6xl mx-auto px-4 py-6 lg:px-8 lg:py-8">
+
+        <!-- ページタイトル -->
+        <div class="mb-6">
+          <h1 class="text-xl font-bold text-gray-900 lg:text-2xl dark:text-gray-100">ダッシュボード概要</h1>
+          <p class="text-sm text-gray-500 mt-1 dark:text-gray-400">2026年3月度 営業実績サマリー</p>
+        </div>
+
+        <!-- KPIカード -->
+        <section class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-8" aria-label="主要指標">
+          <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5 dark:bg-navy-800 dark:border-navy-700">
+            <p class="text-sm text-gray-500 dark:text-gray-400">月間売上</p>
+            <p class="text-2xl font-bold text-gray-900 mt-1 dark:text-gray-100">¥12,500,000</p>
+            <div class="flex items-center mt-2">
+              <svg class="w-4 h-4 text-navy-600 dark:text-navy-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"/></svg>
+              <span class="text-sm text-navy-600 ml-1 font-medium dark:text-navy-300">+8.2%</span>
+              <span class="text-xs text-gray-400 ml-2">前月比</span>
+            </div>
+          </div>
+          <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5 dark:bg-navy-800 dark:border-navy-700">
+            <p class="text-sm text-gray-500 dark:text-gray-400">新規顧客数</p>
+            <p class="text-2xl font-bold text-gray-900 mt-1 dark:text-gray-100">48件</p>
+            <div class="flex items-center mt-2">
+              <svg class="w-4 h-4 text-navy-600 dark:text-navy-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"/></svg>
+              <span class="text-sm text-navy-600 ml-1 font-medium dark:text-navy-300">+12件</span>
+              <span class="text-xs text-gray-400 ml-2">前月比</span>
+            </div>
+          </div>
+          <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5 dark:bg-navy-800 dark:border-navy-700">
+            <p class="text-sm text-gray-500 dark:text-gray-400">成約率</p>
+            <p class="text-2xl font-bold text-gray-900 mt-1 dark:text-gray-100">32.5%</p>
+            <div class="flex items-center mt-2">
+              <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3"/></svg>
+              <span class="text-sm text-gray-500 ml-1 font-medium">-1.2pt</span>
+              <span class="text-xs text-gray-400 ml-2">前月比</span>
+            </div>
+          </div>
+          <div class="bg-white rounded-lg shadow-sm border border-gray-200 p-5 dark:bg-navy-800 dark:border-navy-700">
+            <p class="text-sm text-gray-500 dark:text-gray-400">平均受注単価</p>
+            <p class="text-2xl font-bold text-gray-900 mt-1 dark:text-gray-100">¥260,000</p>
+            <div class="flex items-center mt-2">
+              <svg class="w-4 h-4 text-navy-600 dark:text-navy-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"/></svg>
+              <span class="text-sm text-navy-600 ml-1 font-medium dark:text-navy-300">+¥15,000</span>
+              <span class="text-xs text-gray-400 ml-2">前月比</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- グラフエリア（SVGインタラクティブ） -->
+        <section class="bg-white rounded-lg shadow-sm border border-gray-200 p-5 mb-8 dark:bg-navy-800 dark:border-navy-700" aria-label="売上推移グラフ">
+          <h2 class="text-base font-bold text-gray-900 mb-4 dark:text-gray-100">月別売上推移</h2>
+          <div class="relative" style="height: 220px;">
+            <svg id="salesChart" viewBox="0 0 560 200" preserveAspectRatio="xMidYMid meet" class="w-full h-full">
+              <!-- Y軸ラベル -->
+              <text x="30" y="22" text-anchor="end" class="fill-gray-400 dark:fill-gray-500" font-size="10">15M</text>
+              <text x="30" y="62" text-anchor="end" class="fill-gray-400 dark:fill-gray-500" font-size="10">12M</text>
+              <text x="30" y="102" text-anchor="end" class="fill-gray-400 dark:fill-gray-500" font-size="10">9M</text>
+              <text x="30" y="142" text-anchor="end" class="fill-gray-400 dark:fill-gray-500" font-size="10">6M</text>
+
+              <!-- グリッドライン -->
+              <line x1="40" y1="20" x2="540" y2="20" stroke="#e5e7eb" stroke-width="0.5" stroke-dasharray="4" class="dark:stroke-navy-700"/>
+              <line x1="40" y1="60" x2="540" y2="60" stroke="#e5e7eb" stroke-width="0.5" stroke-dasharray="4" class="dark:stroke-navy-700"/>
+              <line x1="40" y1="100" x2="540" y2="100" stroke="#e5e7eb" stroke-width="0.5" stroke-dasharray="4" class="dark:stroke-navy-700"/>
+              <line x1="40" y1="140" x2="540" y2="140" stroke="#e5e7eb" stroke-width="0.5" stroke-dasharray="4" class="dark:stroke-navy-700"/>
+              <!-- ベースライン -->
+              <line x1="40" y1="170" x2="540" y2="170" stroke="#d1d5db" stroke-width="1" class="dark:stroke-navy-600"/>
+
+              <!-- グラフ塗り -->
+              <path d="M90,105 L190,72 L290,125 L390,50 L440,35 L540,60 L540,170 L90,170 Z" fill="#1e3a5f" fill-opacity="0.07" class="dark:fill-opacity-[0.15]"/>
+              <!-- グラフ線 -->
+              <polyline points="90,105 190,72 290,125 390,50 440,35 540,60" fill="none" stroke="#1e3a5f" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" class="dark:stroke-navy-300"/>
+
+              <!-- データポイント + ツールチップ（各月） -->
+              <!-- 10月: 8.5M -->
+              <circle cx="90" cy="105" r="5" fill="#1e3a5f" class="chart-dot dark:fill-navy-300" data-value="¥8,500,000" data-label="10月"/>
+              <g class="chart-tooltip" style="pointer-events:none;">
+                <rect x="55" y="78" width="70" height="22" rx="4" fill="#1e3a5f" class="dark:fill-navy-600"/>
+                <text x="90" y="93" text-anchor="middle" fill="white" font-size="10" font-weight="600">¥8.5M</text>
+              </g>
+
+              <!-- 11月: 11.2M -->
+              <circle cx="190" cy="72" r="5" fill="#1e3a5f" class="chart-dot dark:fill-navy-300" data-value="¥11,200,000" data-label="11月"/>
+              <g class="chart-tooltip" style="pointer-events:none;">
+                <rect x="155" y="45" width="70" height="22" rx="4" fill="#1e3a5f" class="dark:fill-navy-600"/>
+                <text x="190" y="60" text-anchor="middle" fill="white" font-size="10" font-weight="600">¥11.2M</text>
+              </g>
+
+              <!-- 12月: 7.0M -->
+              <circle cx="290" cy="125" r="5" fill="#1e3a5f" class="chart-dot dark:fill-navy-300" data-value="¥7,000,000" data-label="12月"/>
+              <g class="chart-tooltip" style="pointer-events:none;">
+                <rect x="255" y="98" width="70" height="22" rx="4" fill="#1e3a5f" class="dark:fill-navy-600"/>
+                <text x="290" y="113" text-anchor="middle" fill="white" font-size="10" font-weight="600">¥7.0M</text>
+              </g>
+
+              <!-- 1月: 13.5M -->
+              <circle cx="390" cy="50" r="5" fill="#1e3a5f" class="chart-dot dark:fill-navy-300" data-value="¥13,500,000" data-label="1月"/>
+              <g class="chart-tooltip" style="pointer-events:none;">
+                <rect x="355" y="23" width="70" height="22" rx="4" fill="#1e3a5f" class="dark:fill-navy-600"/>
+                <text x="390" y="38" text-anchor="middle" fill="white" font-size="10" font-weight="600">¥13.5M</text>
+              </g>
+
+              <!-- 2月: 14.8M -->
+              <circle cx="440" cy="35" r="5" fill="#1e3a5f" class="chart-dot dark:fill-navy-300" data-value="¥14,800,000" data-label="2月"/>
+              <g class="chart-tooltip" style="pointer-events:none;">
+                <rect x="405" y="8" width="70" height="22" rx="4" fill="#1e3a5f" class="dark:fill-navy-600"/>
+                <text x="440" y="23" text-anchor="middle" fill="white" font-size="10" font-weight="600">¥14.8M</text>
+              </g>
+
+              <!-- 3月: 12.5M -->
+              <circle cx="540" cy="60" r="5" fill="#1e3a5f" class="chart-dot dark:fill-navy-300" data-value="¥12,500,000" data-label="3月"/>
+              <g class="chart-tooltip" style="pointer-events:none;">
+                <rect x="490" y="33" width="70" height="22" rx="4" fill="#1e3a5f" class="dark:fill-navy-600"/>
+                <text x="525" y="48" text-anchor="middle" fill="white" font-size="10" font-weight="600">¥12.5M</text>
+              </g>
+
+              <!-- X軸ラベル -->
+              <text x="90" y="188" text-anchor="middle" class="fill-gray-400 dark:fill-gray-500" font-size="11">10月</text>
+              <text x="190" y="188" text-anchor="middle" class="fill-gray-400 dark:fill-gray-500" font-size="11">11月</text>
+              <text x="290" y="188" text-anchor="middle" class="fill-gray-400 dark:fill-gray-500" font-size="11">12月</text>
+              <text x="390" y="188" text-anchor="middle" class="fill-gray-400 dark:fill-gray-500" font-size="11">1月</text>
+              <text x="440" y="188" text-anchor="middle" class="fill-gray-400 dark:fill-gray-500" font-size="11">2月</text>
+              <text x="540" y="188" text-anchor="middle" class="fill-gray-400 dark:fill-gray-500" font-size="11">3月</text>
+            </svg>
+          </div>
+          <div class="flex items-center gap-4 mt-2 text-xs text-gray-400 dark:text-gray-500">
+            <span>単位: 百万円</span>
+            <span>期間: 2025年10月 - 2026年3月</span>
+          </div>
+        </section>
+
+        <!-- 受注一覧テーブル（ソート機能付き） -->
+        <section class="bg-white rounded-lg shadow-sm border border-gray-200 mb-8 dark:bg-navy-800 dark:border-navy-700" aria-label="直近の受注一覧">
+          <div class="px-5 py-4 border-b border-gray-200 dark:border-navy-700">
+            <h2 class="text-base font-bold text-gray-900 dark:text-gray-100">直近の受注一覧</h2>
+          </div>
+          <div class="table-scroll overflow-x-auto">
+            <table id="orderTable" class="w-full text-sm">
+              <thead>
+                <tr class="bg-gray-50 text-left dark:bg-navy-900">
+                  <th data-sort="string" data-col="0" class="px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider dark:text-gray-400 whitespace-nowrap">
+                    注文番号 <span class="sort-indicator">&#9650;&#9660;</span>
+                  </th>
+                  <th data-sort="string" data-col="1" class="px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider dark:text-gray-400 whitespace-nowrap">
+                    顧客名 <span class="sort-indicator">&#9650;&#9660;</span>
+                  </th>
+                  <th data-sort="number" data-col="2" class="px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider text-right dark:text-gray-400 whitespace-nowrap">
+                    金額 <span class="sort-indicator">&#9650;&#9660;</span>
+                  </th>
+                  <th data-sort="date" data-col="3" class="px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider dark:text-gray-400 whitespace-nowrap">
+                    日付 <span class="sort-indicator">&#9650;&#9660;</span>
+                  </th>
+                  <th data-sort="string" data-col="4" class="px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider dark:text-gray-400 whitespace-nowrap">
+                    状態 <span class="sort-indicator">&#9650;&#9660;</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100 dark:divide-navy-700">
+                <tr class="hover:bg-gray-50 transition-colors dark:hover:bg-navy-700/50">
+                  <td class="px-5 py-3 font-mono text-navy-600 dark:text-navy-300">ORD-0891</td>
+                  <td class="px-5 py-3 text-gray-900 dark:text-gray-200">田中商事株式会社</td>
+                  <td class="px-5 py-3 text-right text-gray-900 font-medium dark:text-gray-200" data-raw="580000">¥580,000</td>
+                  <td class="px-5 py-3 text-gray-500 dark:text-gray-400" data-raw="2026-03-20">2026/03/20</td>
+                  <td class="px-5 py-3">
+                    <span class="inline-block px-2.5 py-0.5 rounded text-xs font-medium bg-navy-600 text-white">完了</span>
+                  </td>
+                </tr>
+                <tr class="hover:bg-gray-50 transition-colors dark:hover:bg-navy-700/50">
+                  <td class="px-5 py-3 font-mono text-navy-600 dark:text-navy-300">ORD-0890</td>
+                  <td class="px-5 py-3 text-gray-900 dark:text-gray-200">鈴木工業株式会社</td>
+                  <td class="px-5 py-3 text-right text-gray-900 font-medium dark:text-gray-200" data-raw="1200000">¥1,200,000</td>
+                  <td class="px-5 py-3 text-gray-500 dark:text-gray-400" data-raw="2026-03-19">2026/03/19</td>
+                  <td class="px-5 py-3">
+                    <span class="inline-block px-2.5 py-0.5 rounded text-xs font-medium bg-navy-200 text-navy-800 dark:bg-navy-600 dark:text-navy-100">処理中</span>
+                  </td>
+                </tr>
+                <tr class="hover:bg-gray-50 transition-colors dark:hover:bg-navy-700/50">
+                  <td class="px-5 py-3 font-mono text-navy-600 dark:text-navy-300">ORD-0889</td>
+                  <td class="px-5 py-3 text-gray-900 dark:text-gray-200">佐藤建設株式会社</td>
+                  <td class="px-5 py-3 text-right text-gray-900 font-medium dark:text-gray-200" data-raw="340000">¥340,000</td>
+                  <td class="px-5 py-3 text-gray-500 dark:text-gray-400" data-raw="2026-03-18">2026/03/18</td>
+                  <td class="px-5 py-3">
+                    <span class="inline-block px-2.5 py-0.5 rounded text-xs font-medium bg-navy-600 text-white">完了</span>
+                  </td>
+                </tr>
+                <tr class="hover:bg-gray-50 transition-colors dark:hover:bg-navy-700/50">
+                  <td class="px-5 py-3 font-mono text-navy-600 dark:text-navy-300">ORD-0888</td>
+                  <td class="px-5 py-3 text-gray-900 dark:text-gray-200">高橋電機株式会社</td>
+                  <td class="px-5 py-3 text-right text-gray-900 font-medium dark:text-gray-200" data-raw="890000">¥890,000</td>
+                  <td class="px-5 py-3 text-gray-500 dark:text-gray-400" data-raw="2026-03-17">2026/03/17</td>
+                  <td class="px-5 py-3">
+                    <span class="inline-block px-2.5 py-0.5 rounded text-xs font-medium bg-gray-200 text-gray-600 dark:bg-navy-700 dark:text-gray-400">保留</span>
+                  </td>
+                </tr>
+                <tr class="hover:bg-gray-50 transition-colors dark:hover:bg-navy-700/50">
+                  <td class="px-5 py-3 font-mono text-navy-600 dark:text-navy-300">ORD-0887</td>
+                  <td class="px-5 py-3 text-gray-900 dark:text-gray-200">伊藤物産株式会社</td>
+                  <td class="px-5 py-3 text-right text-gray-900 font-medium dark:text-gray-200" data-raw="2100000">¥2,100,000</td>
+                  <td class="px-5 py-3 text-gray-500 dark:text-gray-400" data-raw="2026-03-15">2026/03/15</td>
+                  <td class="px-5 py-3">
+                    <span class="inline-block px-2.5 py-0.5 rounded text-xs font-medium bg-navy-600 text-white">完了</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="px-5 py-3 border-t border-gray-100 text-xs text-gray-400 dark:border-navy-700 dark:text-gray-500">
+            直近5件を表示中 &#8212; 列ヘッダーをクリックでソート
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- フッター -->
+  <footer class="bg-navy-600 text-navy-200 border-t border-navy-500 dark:bg-navy-800 dark:border-navy-700" aria-label="サイトフッター">
+    <div class="max-w-6xl mx-auto px-4 py-4 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs">
+      <span>&copy; 2026 営業管理システム</span>
+      <div class="flex gap-4">
+        <a href="#" class="hover:text-white transition-colors">利用規約</a>
+        <a href="#" class="hover:text-white transition-colors">お問い合わせ</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    // ダークモード切替
+    const darkToggle = document.getElementById('darkToggle');
+    const html = document.documentElement;
+
+    // OS設定を初期値にする
+    if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      html.classList.add('dark');
+    }
+
+    darkToggle.addEventListener('click', () => {
+      html.classList.toggle('dark');
+    });
+
+    // テーブルソート（vanilla JS）
+    const table = document.getElementById('orderTable');
+    const headers = table.querySelectorAll('th[data-sort]');
+    let currentSort = { col: null, asc: true };
+
+    headers.forEach(th => {
+      th.addEventListener('click', () => {
+        const col = parseInt(th.dataset.col, 10);
+        const type = th.dataset.sort;
+        const asc = currentSort.col === col ? !currentSort.asc : true;
+        currentSort = { col, asc };
+
+        // ヘッダーのアクティブ表示を更新
+        headers.forEach(h => h.classList.remove('sort-active'));
+        th.classList.add('sort-active');
+
+        const tbody = table.querySelector('tbody');
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+
+        rows.sort((a, b) => {
+          const cellA = a.children[col];
+          const cellB = b.children[col];
+          let valA, valB;
+
+          if (type === 'number') {
+            valA = parseInt(cellA.dataset.raw || cellA.textContent.replace(/[^0-9]/g, ''), 10);
+            valB = parseInt(cellB.dataset.raw || cellB.textContent.replace(/[^0-9]/g, ''), 10);
+          } else if (type === 'date') {
+            valA = cellA.dataset.raw || cellA.textContent;
+            valB = cellB.dataset.raw || cellB.textContent;
+          } else {
+            valA = cellA.textContent.trim();
+            valB = cellB.textContent.trim();
+          }
+
+          if (valA < valB) return asc ? -1 : 1;
+          if (valA > valB) return asc ? 1 : -1;
+          return 0;
+        });
+
+        rows.forEach(row => tbody.appendChild(row));
+      });
+    });
+
+    // SVGグラフのホバーツールチップ（JSで制御）
+    document.querySelectorAll('.chart-dot').forEach(dot => {
+      const tooltip = dot.nextElementSibling;
+      if (!tooltip || !tooltip.classList.contains('chart-tooltip')) return;
+
+      dot.addEventListener('mouseenter', () => {
+        tooltip.style.opacity = '1';
+      });
+      dot.addEventListener('mouseleave', () => {
+        tooltip.style.opacity = '0';
+      });
+      // タッチ対応
+      dot.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        document.querySelectorAll('.chart-tooltip').forEach(t => t.style.opacity = '0');
+        tooltip.style.opacity = '1';
+      });
+    });
+
+    // グラフ外タッチでツールチップ非表示
+    document.addEventListener('touchstart', (e) => {
+      if (!e.target.classList.contains('chart-dot')) {
+        document.querySelectorAll('.chart-tooltip').forEach(t => t.style.opacity = '0');
+      }
+    });
+  </script>
+
+</body>
+</html>

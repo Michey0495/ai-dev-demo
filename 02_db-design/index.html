@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>02 DB設計 -- データ要件からデータベーススキーマを生成する</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-sql.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-markdown.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-mermaid.min.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            navy: {
+              50: '#f0f4f8',
+              100: '#d9e2ec',
+              200: '#bcccdc',
+              300: '#9fb3c8',
+              400: '#829ab1',
+              500: '#627d98',
+              600: '#486581',
+              700: '#334e68',
+              800: '#1e3a5f',
+              900: '#0f2744',
+            },
+            warm: {
+              50: '#f9fafb',
+              100: '#f3f4f6',
+              200: '#e5e7eb',
+              300: '#d1d5db',
+              400: '#9ca3af',
+              500: '#6b7280',
+              600: '#4b5563',
+              700: '#374151',
+              800: '#1f2937',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    html { scroll-behavior: smooth; }
+    body { font-family: 'Helvetica Neue', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', sans-serif; }
+
+    .code-block {
+      max-height: 520px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: #486581 #1e293b;
+    }
+    .code-block::-webkit-scrollbar { width: 6px; }
+    .code-block::-webkit-scrollbar-track { background: #1e293b; border-radius: 3px; }
+    .code-block::-webkit-scrollbar-thumb { background: #486581; border-radius: 3px; }
+
+    .code-block pre { margin: 0; border-radius: 0; }
+    .code-block pre code { font-size: 12.5px; line-height: 1.6; }
+
+    .annotation-bad {
+      background: #fef2f2;
+      border-left: 3px solid #dc2626;
+      color: #991b1b;
+    }
+    .annotation-good {
+      background: #f0f4f8;
+      border-left: 3px solid #1e3a5f;
+      color: #1e3a5f;
+    }
+
+    .card-hover { transition: transform 0.15s ease, box-shadow 0.15s ease; }
+    .card-hover:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(30,58,95,0.12); }
+
+    .copy-btn {
+      transition: background-color 0.15s ease;
+    }
+    .copy-btn:hover {
+      background-color: #334e68;
+    }
+    .copy-btn.copied {
+      background-color: #065f46;
+    }
+
+    .tab-active {
+      border-bottom: 2px solid #1e3a5f;
+      color: #1e3a5f;
+      font-weight: 600;
+    }
+    .tab-inactive {
+      border-bottom: 2px solid transparent;
+      color: #6b7280;
+    }
+    .tab-inactive:hover {
+      color: #334e68;
+      border-bottom-color: #d1d5db;
+    }
+
+    @media (max-width: 1024px) {
+      .compare-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body class="bg-white text-warm-800">
+
+  <!-- ヘッダー -->
+  <header class="bg-navy-800 text-white">
+    <div class="max-w-7xl mx-auto px-6 py-5 flex items-center justify-between">
+      <div>
+        <span class="text-navy-300 text-sm tracking-wide">02_db-design</span>
+        <h1 class="text-2xl font-bold mt-0.5">DB設計 -- データ要件からスキーマを自動生成</h1>
+      </div>
+      <a href="../showcase/index.html" class="text-navy-200 hover:text-white text-sm flex items-center gap-1.5 transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        showcase に戻る
+      </a>
+    </div>
+  </header>
+
+  <!-- イントロ -->
+  <section class="max-w-7xl mx-auto px-6 py-10">
+    <div class="bg-warm-50 border border-warm-200 rounded-lg p-6">
+      <h2 class="text-lg font-bold text-navy-800 mb-3">このデモで見せること</h2>
+      <p class="text-warm-600 leading-relaxed mb-4">
+        ECサイトの業務要件を日本語で書いた文書（data-requirements.md）を Claude Code に渡すだけで、
+        第3正規形に準拠した PostgreSQL スキーマと ER 図が生成される。
+        人手で書くと抜け漏れが出がちな外部キー制約、CHECK制約、インデックス、カラムコメントまで一発で揃う。
+      </p>
+      <div class="flex flex-wrap gap-3">
+        <span class="px-3 py-1 bg-navy-800 text-white text-xs rounded">PostgreSQL</span>
+        <span class="px-3 py-1 bg-navy-800 text-white text-xs rounded">第3正規形</span>
+        <span class="px-3 py-1 bg-navy-800 text-white text-xs rounded">Claude Code</span>
+        <span class="px-3 py-1 bg-warm-200 text-warm-700 text-xs rounded">所要時間 15-20分</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Before / After 比較 -->
+  <section class="max-w-7xl mx-auto px-6 pb-12">
+    <h2 class="text-xl font-bold text-navy-800 mb-6">Before / After 比較</h2>
+
+    <div class="compare-grid grid grid-cols-2 gap-6">
+
+      <!-- Before -->
+      <div class="border border-warm-200 rounded-lg overflow-hidden">
+        <div class="bg-warm-100 px-5 py-3 border-b border-warm-200 flex items-center justify-between">
+          <div>
+            <span class="text-xs text-warm-500 uppercase tracking-wider font-medium">Before</span>
+            <span class="text-sm text-warm-700 ml-2">AI なしで書いたスキーマ</span>
+          </div>
+          <span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded">問題あり</span>
+        </div>
+
+        <!-- アンチパターン注釈 -->
+        <div class="p-4 space-y-2">
+          <div class="annotation-bad px-3 py-2 rounded text-xs">
+            <span class="font-bold">正規化不足</span> -- categoryName を products に直接格納。カテゴリ名変更時に全商品の UPDATE が必要
+          </div>
+          <div class="annotation-bad px-3 py-2 rounded text-xs">
+            <span class="font-bold">命名混在</span> -- camelCase (firstName, createdAt) と snake_case (created_at, order_number) が混在
+          </div>
+          <div class="annotation-bad px-3 py-2 rounded text-xs">
+            <span class="font-bold">外部キー欠落</span> -- orders.userId, order_items.orderId に REFERENCES なし。参照整合性ゼロ
+          </div>
+          <div class="annotation-bad px-3 py-2 rounded text-xs">
+            <span class="font-bold">インデックスなし</span> -- WHERE status = ? や WHERE user_id = ? でフルスキャン確定
+          </div>
+          <div class="annotation-bad px-3 py-2 rounded text-xs">
+            <span class="font-bold">制約不足</span> -- VARCHAR 桁数なし、NOT NULL / CHECK / UNIQUE がほぼ皆無
+          </div>
+        </div>
+
+        <!-- コード -->
+        <div class="code-block">
+          <pre><code class="language-sql">-- ECサイト データベーススキーマ（初版）
+-- 作成者: 新人開発者A
+
+CREATE TABLE users (
+  id SERIAL PRIMARY KEY,
+  email VARCHAR,
+  password VARCHAR,
+  firstName VARCHAR,
+  lastName VARCHAR,
+  phone VARCHAR,
+  zipcode VARCHAR,
+  prefecture VARCHAR,
+  city VARCHAR,
+  address VARCHAR,
+  status VARCHAR DEFAULT 'active',
+  created_at TIMESTAMP
+);
+
+CREATE TABLE products (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR,
+  description TEXT,
+  price INTEGER,
+  stock INTEGER,
+  sku VARCHAR,
+  categoryName VARCHAR,
+  status VARCHAR DEFAULT 'active',
+  createdAt TIMESTAMP,
+  updatedAt TIMESTAMP
+);
+
+CREATE TABLE orders (
+  id SERIAL PRIMARY KEY,
+  userId INTEGER,
+  order_number VARCHAR,
+  total_amount INTEGER,
+  status VARCHAR DEFAULT 'pending',
+  shipping_zipcode VARCHAR,
+  shipping_prefecture VARCHAR,
+  shipping_city VARCHAR,
+  shipping_address VARCHAR,
+  ordered_at TIMESTAMP
+);
+
+CREATE TABLE order_items (
+  id SERIAL PRIMARY KEY,
+  orderId INTEGER,
+  productId INTEGER,
+  quantity INTEGER,
+  unit_price INTEGER
+);</code></pre>
+        </div>
+      </div>
+
+      <!-- After -->
+      <div class="border border-navy-200 rounded-lg overflow-hidden">
+        <div class="bg-navy-50 px-5 py-3 border-b border-navy-200 flex items-center justify-between">
+          <div>
+            <span class="text-xs text-navy-500 uppercase tracking-wider font-medium">After</span>
+            <span class="text-sm text-navy-700 ml-2">AI が生成したスキーマ</span>
+          </div>
+          <span class="text-xs bg-navy-100 text-navy-700 px-2 py-0.5 rounded">3NF準拠</span>
+        </div>
+
+        <!-- 改善点注釈 -->
+        <div class="p-4 space-y-2">
+          <div class="annotation-good px-3 py-2 rounded text-xs">
+            <span class="font-bold">categories テーブル分離</span> -- 第3正規形。カテゴリの追加・変更が1行で完結
+          </div>
+          <div class="annotation-good px-3 py-2 rounded text-xs">
+            <span class="font-bold">snake_case 統一</span> -- 全テーブル・全カラムで命名規則を統一。チーム開発で混乱しない
+          </div>
+          <div class="annotation-good px-3 py-2 rounded text-xs">
+            <span class="font-bold">外部キー完備</span> -- REFERENCES で参照整合性を保証。孤児レコードが発生しない
+          </div>
+          <div class="annotation-good px-3 py-2 rounded text-xs">
+            <span class="font-bold">インデックス 9本</span> -- email, status, FK列, ordered_at に作成。検索性能を確保
+          </div>
+          <div class="annotation-good px-3 py-2 rounded text-xs">
+            <span class="font-bold">制約・コメント完備</span> -- NOT NULL / UNIQUE / CHECK + 全カラムに COMMENT ON で日本語説明
+          </div>
+        </div>
+
+        <!-- タブ切り替え -->
+        <div class="border-b border-navy-200 px-4 flex gap-4">
+          <button onclick="switchAfterTab('schema')" id="tab-schema" class="py-2 text-sm tab-active cursor-pointer">schema.sql</button>
+          <button onclick="switchAfterTab('er')" id="tab-er" class="py-2 text-sm tab-inactive cursor-pointer">er-diagram.md</button>
+        </div>
+
+        <!-- schema.sql -->
+        <div id="content-schema" class="code-block">
+          <pre><code class="language-sql">-- ECサイト データベーススキーマ（PostgreSQL 15+）
+-- 第3正規形準拠 / snake_case 統一 / 制約・インデックス完備
+
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+
+-- カテゴリ（before では products.categoryName に直接格納していた）
+CREATE TABLE categories (
+  id          SERIAL       PRIMARY KEY,
+  name        VARCHAR(100) NOT NULL UNIQUE,
+  sort_order  INTEGER      NOT NULL DEFAULT 0,
+  created_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE  categories            IS '商品カテゴリ';
+COMMENT ON COLUMN categories.name       IS 'カテゴリ名（一意制約）';
+COMMENT ON COLUMN categories.sort_order IS '表示順（昇順ソート用）';
+
+CREATE TRIGGER trg_categories_updated_at
+  BEFORE UPDATE ON categories
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+
+-- ユーザー（会員）
+CREATE TABLE users (
+  id            SERIAL        PRIMARY KEY,
+  email         VARCHAR(255)  NOT NULL UNIQUE,
+  password_hash VARCHAR(255)  NOT NULL,
+  last_name     VARCHAR(50)   NOT NULL,
+  first_name    VARCHAR(50)   NOT NULL,
+  phone         VARCHAR(20),
+  zip_code      VARCHAR(8)    NOT NULL,
+  prefecture    VARCHAR(10)   NOT NULL,
+  city          VARCHAR(50)   NOT NULL,
+  address_line  VARCHAR(200)  NOT NULL,
+  status        VARCHAR(20)   NOT NULL DEFAULT 'active'
+                CHECK (status IN ('active','suspended','withdrawn')),
+  created_at    TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  updated_at    TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_users_email  ON users (email);
+CREATE INDEX idx_users_status ON users (status);
+
+CREATE TRIGGER trg_users_updated_at
+  BEFORE UPDATE ON users
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+
+-- 商品
+CREATE TABLE products (
+  id          SERIAL        PRIMARY KEY,
+  sku         VARCHAR(50)   NOT NULL UNIQUE,
+  name        VARCHAR(200)  NOT NULL,
+  description TEXT,
+  price       INTEGER       NOT NULL CHECK (price >= 0),
+  stock       INTEGER       NOT NULL DEFAULT 0 CHECK (stock >= 0),
+  category_id INTEGER       NOT NULL REFERENCES categories(id),
+  status      VARCHAR(20)   NOT NULL DEFAULT 'active'
+              CHECK (status IN ('active','hidden','discontinued')),
+  created_at  TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_products_category_id ON products (category_id);
+CREATE INDEX idx_products_status      ON products (status);
+CREATE INDEX idx_products_sku         ON products (sku);
+
+CREATE TRIGGER trg_products_updated_at
+  BEFORE UPDATE ON products
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+
+-- 注文
+CREATE TABLE orders (
+  id                    SERIAL        PRIMARY KEY,
+  user_id               INTEGER       NOT NULL REFERENCES users(id),
+  order_number          VARCHAR(30)   NOT NULL UNIQUE,
+  total_amount          INTEGER       NOT NULL CHECK (total_amount >= 0),
+  status                VARCHAR(20)   NOT NULL DEFAULT 'unpaid'
+                        CHECK (status IN (
+                          'unpaid','paid','preparing','shipped','cancelled'
+                        )),
+  shipping_zip_code     VARCHAR(8)    NOT NULL,
+  shipping_prefecture   VARCHAR(10)   NOT NULL,
+  shipping_city         VARCHAR(50)   NOT NULL,
+  shipping_address_line VARCHAR(200)  NOT NULL,
+  ordered_at            TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  created_at            TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  updated_at            TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_orders_user_id      ON orders (user_id);
+CREATE INDEX idx_orders_order_number ON orders (order_number);
+CREATE INDEX idx_orders_status       ON orders (status);
+CREATE INDEX idx_orders_ordered_at   ON orders (ordered_at DESC);
+
+CREATE TRIGGER trg_orders_updated_at
+  BEFORE UPDATE ON orders
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+
+-- 注文明細
+CREATE TABLE order_items (
+  id         SERIAL  PRIMARY KEY,
+  order_id   INTEGER NOT NULL REFERENCES orders(id),
+  product_id INTEGER NOT NULL REFERENCES products(id),
+  quantity   INTEGER NOT NULL CHECK (quantity > 0),
+  unit_price INTEGER NOT NULL CHECK (unit_price >= 0),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (order_id, product_id)
+);
+
+CREATE INDEX idx_order_items_order_id   ON order_items (order_id);
+CREATE INDEX idx_order_items_product_id ON order_items (product_id);
+
+CREATE TRIGGER trg_order_items_updated_at
+  BEFORE UPDATE ON order_items
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();</code></pre>
+        </div>
+
+        <!-- er-diagram.md -->
+        <div id="content-er" class="code-block hidden">
+          <pre><code class="language-markdown">```mermaid
+---
+title: ECサイト データベース（第3正規形）
+---
+erDiagram
+    categories {
+        serial   id          PK "カテゴリID"
+        varchar  name        UK "カテゴリ名（一意）"
+        integer  sort_order     "表示順"
+        timestamptz created_at "作成日時"
+        timestamptz updated_at "更新日時"
+    }
+
+    users {
+        serial   id             PK "ユーザーID"
+        varchar  email          UK "メールアドレス（一意）"
+        varchar  password_hash     "パスワードハッシュ"
+        varchar  last_name         "姓"
+        varchar  first_name        "名"
+        varchar  phone             "電話番号"
+        varchar  zip_code          "郵便番号"
+        varchar  prefecture        "都道府県"
+        varchar  city              "市区町村"
+        varchar  address_line      "番地以降"
+        varchar  status            "active / suspended / withdrawn"
+        timestamptz created_at     "登録日時"
+        timestamptz updated_at     "最終更新日時"
+    }
+
+    products {
+        serial   id             PK "商品ID"
+        varchar  sku            UK "SKUコード（一意）"
+        varchar  name              "商品名"
+        text     description       "商品説明"
+        integer  price             "税抜価格（0以上）"
+        integer  stock             "在庫数（0以上）"
+        integer  category_id    FK "カテゴリID"
+        varchar  status            "active / hidden / discontinued"
+        timestamptz created_at     "登録日時"
+        timestamptz updated_at     "最終更新日時"
+    }
+
+    orders {
+        serial   id                    PK "注文ID"
+        integer  user_id               FK "注文者ID"
+        varchar  order_number          UK "注文番号（一意）"
+        integer  total_amount             "合計金額（税込）"
+        varchar  status                   "unpaid / paid / ..."
+        varchar  shipping_zip_code        "配送先 郵便番号"
+        varchar  shipping_prefecture      "配送先 都道府県"
+        varchar  shipping_city            "配送先 市区町村"
+        varchar  shipping_address_line    "配送先 番地"
+        timestamptz ordered_at            "注文日時"
+        timestamptz created_at            "作成日時"
+        timestamptz updated_at            "更新日時"
+    }
+
+    order_items {
+        serial   id          PK "明細ID"
+        integer  order_id    FK "注文ID"
+        integer  product_id  FK "商品ID"
+        integer  quantity       "注文数量（1以上）"
+        integer  unit_price    "注文時単価（0以上）"
+        timestamptz created_at "作成日時"
+        timestamptz updated_at "更新日時"
+    }
+
+    categories ||--o{ products    : "1カテゴリ → 複数商品"
+    users      ||--o{ orders      : "1ユーザー → 複数注文"
+    orders     ||--|{ order_items : "1注文 → 1件以上の明細"
+    products   ||--o{ order_items : "1商品 → 複数明細"
+```</code></pre>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- 差分ハイライトカード -->
+  <section class="bg-warm-50 border-t border-b border-warm-200">
+    <div class="max-w-7xl mx-auto px-6 py-12">
+      <h2 class="text-xl font-bold text-navy-800 mb-8">主要な改善ポイント</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+
+        <div class="bg-white border border-warm-200 rounded-lg p-5 card-hover">
+          <div class="flex items-center gap-3 mb-3">
+            <span class="w-8 h-8 bg-navy-800 text-white rounded flex items-center justify-center text-sm font-bold">1</span>
+            <h3 class="font-bold text-navy-800">正規化: カテゴリ分離</h3>
+          </div>
+          <div class="space-y-2 text-sm">
+            <div class="bg-red-50 text-red-800 px-3 py-1.5 rounded font-mono text-xs">categoryName VARCHAR</div>
+            <div class="text-center text-warm-400">&#8595;</div>
+            <div class="bg-navy-50 text-navy-800 px-3 py-1.5 rounded font-mono text-xs">category_id INTEGER REFERENCES categories(id)</div>
+          </div>
+          <p class="text-warm-500 text-xs mt-3">カテゴリ名変更が1行の UPDATE で完結する。before では全商品レコードを書き換える必要があった</p>
+        </div>
+
+        <div class="bg-white border border-warm-200 rounded-lg p-5 card-hover">
+          <div class="flex items-center gap-3 mb-3">
+            <span class="w-8 h-8 bg-navy-800 text-white rounded flex items-center justify-center text-sm font-bold">2</span>
+            <h3 class="font-bold text-navy-800">参照整合性: 外部キー</h3>
+          </div>
+          <div class="space-y-2 text-sm">
+            <div class="bg-red-50 text-red-800 px-3 py-1.5 rounded font-mono text-xs">userId INTEGER</div>
+            <div class="text-center text-warm-400">&#8595;</div>
+            <div class="bg-navy-50 text-navy-800 px-3 py-1.5 rounded font-mono text-xs">user_id INTEGER NOT NULL REFERENCES users(id)</div>
+          </div>
+          <p class="text-warm-500 text-xs mt-3">存在しないユーザーへの注文紐づけをDB層で防止。アプリ側のバリデーションだけに頼らない</p>
+        </div>
+
+        <div class="bg-white border border-warm-200 rounded-lg p-5 card-hover">
+          <div class="flex items-center gap-3 mb-3">
+            <span class="w-8 h-8 bg-navy-800 text-white rounded flex items-center justify-center text-sm font-bold">3</span>
+            <h3 class="font-bold text-navy-800">CHECK 制約: ステータス列挙</h3>
+          </div>
+          <div class="space-y-2 text-sm">
+            <div class="bg-red-50 text-red-800 px-3 py-1.5 rounded font-mono text-xs">status VARCHAR DEFAULT 'pending'</div>
+            <div class="text-center text-warm-400">&#8595;</div>
+            <div class="bg-navy-50 text-navy-800 px-3 py-1.5 rounded font-mono text-xs leading-relaxed">status VARCHAR(20) NOT NULL DEFAULT 'unpaid'<br>CHECK (status IN ('unpaid','paid',...))</div>
+          </div>
+          <p class="text-warm-500 text-xs mt-3">'pendding' のようなtypoや想定外の値がDBに入らない。要件の5ステータスを正確に列挙</p>
+        </div>
+
+        <div class="bg-white border border-warm-200 rounded-lg p-5 card-hover">
+          <div class="flex items-center gap-3 mb-3">
+            <span class="w-8 h-8 bg-navy-800 text-white rounded flex items-center justify-center text-sm font-bold">4</span>
+            <h3 class="font-bold text-navy-800">インデックス: 検索性能</h3>
+          </div>
+          <div class="space-y-2 text-sm">
+            <div class="bg-red-50 text-red-800 px-3 py-1.5 rounded font-mono text-xs">インデックス 0本</div>
+            <div class="text-center text-warm-400">&#8595;</div>
+            <div class="bg-navy-50 text-navy-800 px-3 py-1.5 rounded font-mono text-xs">9本: email, status x2, FK x4, sku, ordered_at</div>
+          </div>
+          <p class="text-warm-500 text-xs mt-3">WHERE句で頻出するカラムにインデックスを作成。データ量増加時のフルスキャンを回避</p>
+        </div>
+
+        <div class="bg-white border border-warm-200 rounded-lg p-5 card-hover">
+          <div class="flex items-center gap-3 mb-3">
+            <span class="w-8 h-8 bg-navy-800 text-white rounded flex items-center justify-center text-sm font-bold">5</span>
+            <h3 class="font-bold text-navy-800">命名統一 + COMMENT</h3>
+          </div>
+          <div class="space-y-2 text-sm">
+            <div class="bg-red-50 text-red-800 px-3 py-1.5 rounded font-mono text-xs">firstName, createdAt, orderId（混在）</div>
+            <div class="text-center text-warm-400">&#8595;</div>
+            <div class="bg-navy-50 text-navy-800 px-3 py-1.5 rounded font-mono text-xs">first_name, created_at, order_id + COMMENT ON</div>
+          </div>
+          <p class="text-warm-500 text-xs mt-3">snake_case に統一し、全カラムに日本語 COMMENT。半年後に触る人が迷わない</p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- プロンプト -->
+  <section class="max-w-7xl mx-auto px-6 py-12">
+    <h2 class="text-xl font-bold text-navy-800 mb-2">Claude Code に投入するプロンプト</h2>
+    <p class="text-warm-500 text-sm mb-6">以下をそのまま Claude Code に貼り付けると、schema.sql と er-diagram.md が生成される</p>
+
+    <div class="relative border border-warm-200 rounded-lg overflow-hidden">
+      <div class="bg-warm-100 px-4 py-2.5 border-b border-warm-200 flex items-center justify-between">
+        <span class="text-xs text-warm-500 font-medium">with-ai/prompt.md</span>
+        <button onclick="copyPrompt()" id="copy-btn" class="copy-btn bg-navy-800 text-white text-xs px-3 py-1 rounded cursor-pointer">
+          コピー
+        </button>
+      </div>
+      <div class="code-block bg-gray-900">
+        <pre><code class="language-markdown" id="prompt-content">input/data-requirements.md を読み込んでください。
+このファイルには小規模ECサイトのビジネス要件が日本語で書かれています。
+
+要件に基づいて PostgreSQL のデータベーススキーマを設計してください。
+
+設計方針:
+
+- 第3正規形（3NF）を満たすこと。繰り返し項目や推移的関数従属を排除する
+- テーブル名・カラム名は英語の snake_case で統一する
+- データ型は用途に応じて適切に選択する
+  - VARCHAR には桁数を指定する（例: email は VARCHAR(255)）
+  - 金額は INTEGER（円単位の整数）
+  - 日時は TIMESTAMPTZ（タイムゾーン付き）
+- 主キーは SERIAL（UUID は使わない）
+- 外部キーは REFERENCES で明示的に定義する
+- NOT NULL / UNIQUE / CHECK 制約を漏れなく設定する
+  - ステータス値は CHECK 制約で列挙し、想定外の値が入らないようにする
+  - 数量や価格にはゼロ以上の CHECK を付ける
+- 検索頻度が高いカラム（email, status, FK列, 日時）にインデックスを作成する
+- 全テーブルに created_at / updated_at を設け、updated_at はトリガー関数で自動更新する
+- 各テーブル・各カラムに COMMENT ON で日本語の説明を付ける
+- パスワードは平文保存しない前提のカラム名にする（password_hash）
+
+出力:
+1. schema.sql -- テーブル定義・制約・インデックス・トリガー・コメントを含む実行可能な DDL
+2. er-diagram.md -- Mermaid erDiagram 記法の ER 図。各カラムにPK/FK/UKを明示し、
+   リレーションのラベルにカーディナリティの説明を添える</code></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- フッター -->
+  <footer class="bg-navy-800 text-white">
+    <div class="max-w-7xl mx-auto px-6 py-6 flex items-center justify-between">
+      <span class="text-navy-300 text-sm">02_db-design -- AI開発デモ集</span>
+      <a href="../showcase/index.html" class="bg-white text-navy-800 px-5 py-2 rounded text-sm font-medium hover:bg-navy-100 transition-colors">
+        showcase に戻る
+      </a>
+    </div>
+  </footer>
+
+  <script>
+    function switchAfterTab(tab) {
+      const schemaEl = document.getElementById('content-schema');
+      const erEl = document.getElementById('content-er');
+      const tabSchema = document.getElementById('tab-schema');
+      const tabEr = document.getElementById('tab-er');
+
+      if (tab === 'schema') {
+        schemaEl.classList.remove('hidden');
+        erEl.classList.add('hidden');
+        tabSchema.className = 'py-2 text-sm tab-active cursor-pointer';
+        tabEr.className = 'py-2 text-sm tab-inactive cursor-pointer';
+      } else {
+        schemaEl.classList.add('hidden');
+        erEl.classList.remove('hidden');
+        tabSchema.className = 'py-2 text-sm tab-inactive cursor-pointer';
+        tabEr.className = 'py-2 text-sm tab-active cursor-pointer';
+      }
+    }
+
+    function copyPrompt() {
+      const text = document.getElementById('prompt-content').textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        const btn = document.getElementById('copy-btn');
+        btn.textContent = 'コピーしました';
+        btn.classList.add('copied');
+        setTimeout(() => {
+          btn.textContent = 'コピー';
+          btn.classList.remove('copied');
+        }, 2000);
+      });
+    }
+  </script>
+</body>
+</html>

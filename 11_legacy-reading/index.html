@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>11 Legacy Reading - レガシー解読デモ</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-markdown.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-mermaid.min.js"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        navy: {
+          50: '#eef2f7',
+          100: '#d4dce8',
+          200: '#a9b9d1',
+          300: '#7e96ba',
+          400: '#5373a3',
+          500: '#2d5485',
+          600: '#1e3a5f',
+          700: '#162c48',
+          800: '#0f1e30',
+          900: '#071019'
+        },
+        warm: {
+          50: '#f9fafb',
+          100: '#f3f4f6',
+          200: '#e5e7eb',
+          300: '#d1d5db',
+          400: '#9ca3af',
+          500: '#6b7280',
+          600: '#4b5563',
+          700: '#374151',
+          800: '#1f2937',
+          900: '#111827'
+        }
+      }
+    }
+  }
+}
+</script>
+<style>
+  html { scroll-behavior: smooth; }
+  .code-block { max-height: 480px; overflow-y: auto; }
+  .code-block::-webkit-scrollbar { width: 6px; }
+  .code-block::-webkit-scrollbar-track { background: #1e293b; }
+  .code-block::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
+  pre[class*="language-"] { margin: 0 !important; border-radius: 0 !important; font-size: 12.5px !important; line-height: 1.6 !important; }
+  code[class*="language-"] { font-size: 12.5px !important; }
+  .tab-btn.active { border-bottom: 2px solid #1e3a5f; color: #1e3a5f; font-weight: 600; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+  .copy-btn { transition: all 0.2s; }
+  .copy-btn:hover { transform: translateY(-1px); }
+  .fade-in { animation: fadeIn 0.4s ease-out; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  .note-before { border-left: 3px solid #dc2626; background: #fef2f2; }
+  .note-after { border-left: 3px solid #1e3a5f; background: #eef2f7; }
+  .metric-card { transition: transform 0.2s; }
+  .metric-card:hover { transform: translateY(-2px); }
+</style>
+</head>
+<body class="bg-white text-warm-800 antialiased">
+
+<!-- ヘッダー -->
+<header class="bg-navy-600 text-white">
+  <div class="max-w-7xl mx-auto px-6 py-5 flex items-center justify-between">
+    <div>
+      <div class="text-navy-200 text-sm tracking-wide mb-1">11_legacy-reading</div>
+      <h1 class="text-2xl font-bold tracking-tight">レガシー解読</h1>
+      <p class="text-navy-200 text-sm mt-1">ドキュメントなし・変数名1文字のコードをAIが30秒で完全解析</p>
+    </div>
+    <a href="../showcase/index.html" class="flex items-center gap-2 text-navy-200 hover:text-white text-sm transition-colors">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+      showcaseに戻る
+    </a>
+  </div>
+</header>
+
+<!-- メトリクス比較バー -->
+<section class="bg-navy-50 border-b border-warm-200">
+  <div class="max-w-7xl mx-auto px-6 py-6">
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div class="metric-card bg-white rounded-lg p-4 border border-warm-200 shadow-sm">
+        <div class="text-xs text-warm-500 uppercase tracking-wider">従来の所要時間</div>
+        <div class="text-2xl font-bold text-warm-700 mt-1">8時間</div>
+        <div class="text-xs text-warm-400 mt-1">新人エンジニア 丸1日</div>
+      </div>
+      <div class="metric-card bg-white rounded-lg p-4 border border-navy-200 shadow-sm">
+        <div class="text-xs text-navy-500 uppercase tracking-wider">AI活用時</div>
+        <div class="text-2xl font-bold text-navy-600 mt-1">30秒</div>
+        <div class="text-xs text-warm-400 mt-1">Claude Code 1回の実行</div>
+      </div>
+      <div class="metric-card bg-white rounded-lg p-4 border border-warm-200 shadow-sm">
+        <div class="text-xs text-warm-500 uppercase tracking-wider">従来の理解度</div>
+        <div class="text-2xl font-bold text-warm-700 mt-1">50-60%</div>
+        <div class="text-xs text-warm-400 mt-1">推測混じり、確信なし</div>
+      </div>
+      <div class="metric-card bg-white rounded-lg p-4 border border-navy-200 shadow-sm">
+        <div class="text-xs text-navy-500 uppercase tracking-wider">AI活用時の理解度</div>
+        <div class="text-2xl font-bold text-navy-600 mt-1">100%</div>
+        <div class="text-xs text-warm-400 mt-1">全関数解説+データフロー図</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 対象コード表示 -->
+<section class="max-w-7xl mx-auto px-6 py-10">
+  <h2 class="text-lg font-bold text-navy-600 mb-1">対象コード: 引き継いだレガシーコード</h2>
+  <p class="text-sm text-warm-500 mb-5">6ファイル、コメントゼロ、変数名は1文字。前任者は退職済み。</p>
+
+  <div class="border border-warm-200 rounded-lg overflow-hidden">
+    <div class="flex border-b border-warm-200 bg-warm-50 overflow-x-auto">
+      <button class="tab-btn active px-4 py-2.5 text-sm text-warm-500 whitespace-nowrap" data-tab="code-main">main.py</button>
+      <button class="tab-btn px-4 py-2.5 text-sm text-warm-500 whitespace-nowrap" data-tab="code-cfg">cfg.py</button>
+      <button class="tab-btn px-4 py-2.5 text-sm text-warm-500 whitespace-nowrap" data-tab="code-proc">proc.py</button>
+      <button class="tab-btn px-4 py-2.5 text-sm text-warm-500 whitespace-nowrap" data-tab="code-calc">calc.py</button>
+      <button class="tab-btn px-4 py-2.5 text-sm text-warm-500 whitespace-nowrap" data-tab="code-util">util.py</button>
+      <button class="tab-btn px-4 py-2.5 text-sm text-warm-500 whitespace-nowrap" data-tab="code-viz">viz.py</button>
+    </div>
+
+    <div id="code-main" class="tab-panel active code-block">
+      <pre><code class="language-python">import pandas as pd
+from cfg import F,F2,E,D
+from proc import fn1,fn2,fn3
+from calc import x,y,z
+from viz import mk,rpt
+
+def run():
+    df=fn1(pd.read_csv(F,encoding=E));res=z(y(fn2(df)));cat=fn3(df)
+    try:df2=fn1(pd.read_csv(F2,encoding=E));cmp=x(res["total"],fn2(df2)["total"])
+    except Exception:cmp=None
+    [mk(*a)for a in[(res,"daily.csv"),(cat,"category.csv")]];return rpt(res,cmp)
+
+if __name__=="__main__":print(run())</code></pre>
+    </div>
+
+    <div id="code-cfg" class="tab-panel code-block">
+      <pre><code class="language-python">import os
+_=os.path;B=_.dirname;J=_.join
+P=J(B(__file__),"..","data");O=J(B(__file__),"..","output")
+D={chr(i):v for i,v in zip(range(97,102),["売上日","商品名","カテゴリ","金額","個数"])}
+S={v:k for k,v in D.items()}
+F,F2=[J(P,f) for f in("sales.csv","sales_prev.csv")]
+E="utf-8-sig"
+T,W,Q=0.05,7,[3,6,9,12]
+_R={"H":[1,0,0],"M":[0,1,0],"L":[0,0,1]}
+_V=lambda k:_R.get(k,[0]*3)</code></pre>
+    </div>
+
+    <div id="code-proc" class="tab-panel code-block">
+      <pre><code class="language-python">import pandas as pd;import numpy as np
+from cfg import D,S
+
+def fn1(df):
+    df=df.copy()
+    df=df[~df.get("status",pd.Series(dtype=str)).isin(["cancelled","returned"])] if "status" in df.columns else df
+    df=df.drop(columns=["status"],errors="ignore")
+    return df[(df[D["d"]]&gt;0)&amp;(df[[D["a"],D["d"]]].notna().all(axis=1))].drop_duplicates().reset_index(drop=True)
+
+def fn2(df,d=None):
+    df=df.copy();c,e,a=D["d"],D["e"],D["a"];df[a]=pd.to_datetime(df[a])
+    df=df[df[a]&gt;=pd.to_datetime(d)] if d is not None else df
+    tmp=df.groupby(df[a].dt.date).agg(**{k:(c if k!="cnt" else e,v) for k,v in[("total","sum"),("cnt","sum"),("avg","mean"),("mx","max"),("mn","min"),("n","count")]}).reset_index()
+    tmp.columns=["date"]+[c for c in tmp.columns[1:]];return tmp.sort_values("date").reset_index(drop=True)
+
+def fn3(df,c=None):
+    df=df.copy();cat,amt,qty=D["c"],D["d"],D["e"]
+    df=df[df[cat]==c] if c is not None else df
+    r=df.pivot_table(values=[amt,qty],index=cat,aggfunc={amt:["sum","mean","count"],qty:"sum"})
+    r.columns=["_".join(col).strip("_") for col in r.columns]
+    r=r.reset_index().sort_values(f"{amt}_sum",ascending=False)
+    r["pct"],r["rank"]=r[f"{amt}_sum"]/r[f"{amt}_sum"].sum()*100,range(1,len(r)+1)
+    return r</code></pre>
+    </div>
+
+    <div id="code-calc" class="tab-panel code-block">
+      <pre><code class="language-python">import pandas as pd;import numpy as np
+from cfg import W,Q
+
+def x(a,b):
+    a,b=[pd.Series(s).reset_index(drop=True)for s in(a,b)]
+    if len(a)!=len(b):a,b=[s.iloc[:min(len(a),len(b))]for s in(a,b)]
+    r=pd.DataFrame({"cur":a,"prev":b})
+    r["g"],r["d"]=np.where(r["prev"]!=0,(r["cur"]-r["prev"])/r["prev"]*100,np.nan),r["cur"]-r["prev"]
+    return r
+
+def y(df):
+    df=df.copy();t=next((c for c in["total","sum"]if c in df.columns),df.columns[1])
+    df["ma"],df["std"]=[df[t].rolling(window=W,min_periods=1).agg(f)for f in["mean","std"]]
+    df["std"]=df["std"].fillna(0)
+    df["upper"],df["lower"]=df["ma"]+2*df["std"],df["ma"]-2*df["std"]
+    df["anomaly"]=(df[t]&gt;df["upper"])|(df[t]&lt;df["lower"])
+    return df
+
+def z(df,t="total"):
+    df=df.copy()
+    df["m"]=pd.to_datetime(df["date"]).dt.month if "date" in df.columns else(df["m"] if "m" in df.columns else pd.Series(range(1,len(df)+1))%12+1)
+    s=df.groupby("m")[t].mean();gs=s.mean();si=s/gs if gs!=0 else s
+    df["si"],df["adj"]=df["m"].map(si),np.where(df["m"].map(si)!=0,df[t]/df["m"].map(si),df[t])
+    df["trend"]=df["adj"].rolling(window=3,min_periods=1).mean()
+    return df</code></pre>
+    </div>
+
+    <div id="code-util" class="tab-panel code-block">
+      <pre><code class="language-python">import re;from datetime import datetime
+
+chk=lambda x:isinstance(x,str)and(lambda d:(d.year&gt;=2000)&amp;(d.year&lt;=2100))(datetime.strptime(x,"%Y-%m-%d"))if isinstance(x,str)and bool(re.match(r"^\d{4}-\d{2}-\d{2}$",x))else False
+
+def fix(s):
+    return float(s) if isinstance(s,(int,float))else(lambda v:float(v) if v else 0.0)(re.sub(r"[&#165;&#65509;,$\s,]","",str(s).strip())or None)
+
+fmt=lambda n:f"{n/1e6:.1f}M"if n&gt;=1e6 else f"{n/1e3:.1f}K"if n&gt;=1e3 else f"{n:,.0f}"</code></pre>
+    </div>
+
+    <div id="code-viz" class="tab-panel code-block">
+      <pre><code class="language-python">import pandas as pd;import os
+from cfg import O,E;from util import fmt
+
+def mk(df,p="summary.csv"):
+    os.makedirs(O,exist_ok=True);o=os.path.join(O,p);out=df.copy()
+    [out.__setitem__(c,out[c].apply(fmt))for c in out.select_dtypes(include=["float64","int64"]).columns if c not in("rank","m","n","cnt")]
+    out.to_csv(o,index=False,encoding=E);return o
+
+def rpt(df,df2=None):
+    os.makedirs(O,exist_ok=True);o=os.path.join(O,"report.txt")
+    L=["="*60,"  SALES REPORT","="*60,""]
+    L+=[f"  Total Sales: {fmt(df['total'].sum())}",f"  Average Daily: {fmt(df['total'].mean())}",f"  Peak Day: {fmt(df['total'].max())}",f"  Records: {len(df)}",""]if "total" in df.columns else[""]
+    if df2 is not None and "g" in df2.columns:
+        g=df2["g"].dropna();L+=["-"*60,"  YEAR-OVER-YEAR","-"*60,f"  Avg Growth: {g.mean():.1f}%",f"  Positive: {(g&gt;0).sum()}  Negative: {(g&lt;=0).sum()}"]
+    L+=["","="*60]
+    with open(o,"w",encoding=E)as f:f.write("\n".join(L))
+    return o</code></pre>
+    </div>
+  </div>
+</section>
+
+<!-- Before / After 比較 -->
+<section class="bg-warm-50 border-t border-b border-warm-200">
+  <div class="max-w-7xl mx-auto px-6 py-10">
+    <h2 class="text-lg font-bold text-navy-600 mb-6">Before / After 比較</h2>
+
+    <div class="grid lg:grid-cols-2 gap-6">
+
+      <!-- Before -->
+      <div class="bg-white rounded-lg border border-warm-300 overflow-hidden">
+        <div class="bg-warm-100 px-5 py-3 border-b border-warm-200">
+          <div class="flex items-center gap-2">
+            <span class="inline-block w-2.5 h-2.5 rounded-full bg-red-400"></span>
+            <span class="font-semibold text-warm-700 text-sm">Before: 新人エンジニアが丸1日かけた調査メモ</span>
+          </div>
+          <div class="text-xs text-warm-400 mt-1">8時間 / 理解度 50-60% / 推測ベース</div>
+        </div>
+        <div class="p-5 space-y-4 text-sm text-warm-700 code-block" style="max-height:600px;">
+          <div class="note-before p-3 rounded-r text-xs">
+            <span class="font-semibold text-red-700">問題点:</span> cfg.pyのchr()動的生成に時間を取られ、D辞書の内容理解に30分消費
+          </div>
+          <div class="bg-warm-50 rounded p-3 font-mono text-xs leading-relaxed whitespace-pre-wrap">9:30 cfg.py を開く。
+最初の行で _=os.path;B=_.dirname;J=_.join とあり、
+osモジュールのメソッドを1文字に束ねている。
+これだけでかなり読む気が削がれる。
+D は辞書。chr(97)からchr(101)、つまり'a'から'e'の
+キーに日本語カラム名を割り当てている。</div>
+
+          <div class="note-before p-3 rounded-r text-xs">
+            <span class="font-semibold text-red-700">問題点:</span> fn2のagg辞書内包表記を展開するのに45分。groupbyの構造を手作業で分解
+          </div>
+          <div class="bg-warm-50 rounded p-3 font-mono text-xs leading-relaxed whitespace-pre-wrap">10:30 proc.py に進む。
+fn2(df, d) が分からない。
+groupbyのaggが辞書内包表記。
+{k:(c if k!="cnt" else e,v) for k,v in[("total","sum"),...]}
+――これはきつい。
+展開してみると、total=金額のsum、cnt=個数のsum...</div>
+
+          <div class="note-before p-3 rounded-r text-xs">
+            <span class="font-semibold text-red-700">問題点:</span> calc.pyのy()とz()で理解を断念。ビジネス要件との結びつきが見えない
+          </div>
+          <div class="bg-warm-50 rounded p-3 font-mono text-xs leading-relaxed whitespace-pre-wrap">11:15 calc.py に着手。覚悟を決める。
+
+y(df) -- rolling(window=W)でW=7日の移動平均を計算。
+stdも計算して、upper, lowerを作っている。
+anomaly列で upper/lower を超えたらTrue。
+→ ボリンジャーバンドみたいなもの？ 異常検知？
+  確信度: 60%。
+
+z(df, t) が一番厳しい。三項演算子3段ネスト。
+→ 季節調整？ 自信ない。</div>
+
+          <div class="note-before p-3 rounded-r text-xs">
+            <span class="font-semibold text-red-700">問題点:</span> 未使用コード6個の意図が不明。デッドコードかバグか判断できず
+          </div>
+          <div class="bg-warm-50 rounded p-3 font-mono text-xs leading-relaxed whitespace-pre-wrap">14:00 疑問メモ:
+- T = 0.05 はどこからも使われていない
+- Q = [3, 6, 9, 12] も使われていない
+- _R, _V は何？ 参照がない
+- util.pyのchk()とfix()もパイプラインで未使用
+
+15:30 分かったが自信がない:
+- calc.y: 確信度60%
+- calc.z: 確信なし
+
+17:00 退勤。丸1日使って骨格は追えた。
+細部は推測の積み重ね。</div>
+        </div>
+      </div>
+
+      <!-- After -->
+      <div class="bg-white rounded-lg border border-navy-200 overflow-hidden">
+        <div class="bg-navy-50 px-5 py-3 border-b border-navy-200">
+          <div class="flex items-center gap-2">
+            <span class="inline-block w-2.5 h-2.5 rounded-full bg-navy-500"></span>
+            <span class="font-semibold text-navy-700 text-sm">After: Claude Codeの解析結果</span>
+          </div>
+          <div class="text-xs text-warm-400 mt-1">30秒 / 理解度 100% / 全関数完全解説</div>
+        </div>
+        <div class="p-5 space-y-4 text-sm text-warm-700 code-block" style="max-height:600px;">
+          <div class="note-after p-3 rounded-r text-xs">
+            <span class="font-semibold text-navy-700">改善:</span> cfg.pyの全変数を意味・型・使用箇所まで完全に特定。未使用変数も明示
+          </div>
+          <div class="bg-warm-50 rounded p-3 font-mono text-xs leading-relaxed whitespace-pre-wrap">cfg.py -- 設定・定数定義
+
+| 変数 | 型    | 意味                          | 使用箇所   |
+|------|-------|-------------------------------|-----------|
+| D    | dict  | カラム名マッピング              | proc.py   |
+|      |       | chr(97)-chr(101)で'a'-'e'生成  |           |
+| T    | float | 0.05 閾値として定義            | 未使用     |
+| _R   | dict  | ワンホットベクトル辞書          | 未使用     |
+| _V   | lambda| _Rから取得                     | 未使用     |
+
+Dの対応: a=売上日, b=商品名, c=カテゴリ, d=金額, e=個数</div>
+
+          <div class="note-after p-3 rounded-r text-xs">
+            <span class="font-semibold text-navy-700">改善:</span> 全関数のリネーム提案を即座に生成。引数名まで含めた対応表
+          </div>
+          <div class="bg-warm-50 rounded p-3 font-mono text-xs leading-relaxed whitespace-pre-wrap">関数名リネーム提案:
+
+fn1(df)    → filter_valid_orders(orders_df)
+fn2(df, d) → aggregate_daily_totals(orders_df, start_date)
+fn3(df, c) → pivot_by_category(orders_df, category_filter)
+x(a, b)    → calculate_yoy_growth(current, previous)
+y(df)      → add_moving_average_bands(daily_df)
+z(df, t)   → apply_seasonal_adjustment(daily_df, target)
+mk(df, p)  → export_summary_csv(df, filename)
+rpt(df, d) → generate_text_report(daily_df, yoy_df)</div>
+
+          <div class="note-after p-3 rounded-r text-xs">
+            <span class="font-semibold text-navy-700">改善:</span> y()とz()の処理を正確に特定。ビジネス上の位置づけまで解説
+          </div>
+          <div class="bg-warm-50 rounded p-3 font-mono text-xs leading-relaxed whitespace-pre-wrap">calc.py -- 統計計算
+
+y() = add_moving_average_bands
+  7日移動平均 + 2σバンドによる異常検知
+  統計的管理図の構造。売上の急増・急減を検出
+
+z() = apply_seasonal_adjustment
+  月別季節指数を算出し季節変動を除去
+  adj = 実績 / 季節指数（季節調整値）
+  trend = adjの3期移動平均（基調トレンド）
+
+  注意: df["m"].map(si)を3回計算。無駄な再計算</div>
+
+          <div class="note-after p-3 rounded-r text-xs">
+            <span class="font-semibold text-navy-700">改善:</span> Mermaidデータフロー図でパイプライン全体を可視化
+          </div>
+          <div class="bg-warm-50 rounded p-3 font-mono text-xs leading-relaxed whitespace-pre-wrap">データフロー:
+
+sales.csv
+  → fn1() クリーニング
+    → fn2() 日次集計
+      → y() 移動平均+異常検知
+        → z() 季節調整+トレンド
+          → mk() → daily.csv
+    → fn3() カテゴリ別集計
+      → mk() → category.csv
+sales_prev.csv
+  → fn1() → fn2() → x() 前年比較
+    → rpt() → report.txt</div>
+
+          <div class="note-after p-3 rounded-r text-xs">
+            <span class="font-semibold text-navy-700">改善:</span> デッドコード6件を特定し、経緯まで推測。改善ロードマップ付き
+          </div>
+          <div class="bg-warm-50 rounded p-3 font-mono text-xs leading-relaxed whitespace-pre-wrap">デッドコード:
+  T=0.05   → 閾値フィルタ用に準備、未実装
+  Q=[3,6,9,12] → 四半期集計の構想、未実装
+  S(逆引き) → 使われていない
+  _R, _V   → 優先度分類、途中放棄
+  chk()    → 日付バリデーション、未組込
+  fix()    → CSV仕様変更で不要に
+
+改善優先度:
+  高: リネーム(2h) / docstring(2h) / デッド削除(30m)
+  中: try-except限定(30m) / logging導入(1h)
+  低: I/O分離(3h) / 型定義(2h)</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- 差分ハイライト -->
+<section class="max-w-7xl mx-auto px-6 py-10">
+  <h2 class="text-lg font-bold text-navy-600 mb-6">決定的な差分</h2>
+  <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
+
+    <div class="bg-white border border-warm-200 rounded-lg p-5 shadow-sm metric-card">
+      <div class="flex items-center gap-2 mb-3">
+        <span class="inline-block w-8 h-8 rounded-full bg-navy-600 text-white text-sm font-bold flex items-center justify-center">1</span>
+        <h3 class="font-semibold text-navy-700 text-sm">関数の正確な特定</h3>
+      </div>
+      <div class="text-xs text-warm-600 leading-relaxed">
+        <p class="mb-2">新人は calc.y() を「ボリンジャーバンド？ 確信度60%」と推測で終えた。</p>
+        <p>AIは「7日移動平均+2シグマバンドの統計的管理図。売上の異常検知」と即座に特定し、z()でmap(si)を3回計算している無駄まで指摘した。</p>
+      </div>
+    </div>
+
+    <div class="bg-white border border-warm-200 rounded-lg p-5 shadow-sm metric-card">
+      <div class="flex items-center gap-2 mb-3">
+        <span class="inline-block w-8 h-8 rounded-full bg-navy-600 text-white text-sm font-bold flex items-center justify-center">2</span>
+        <h3 class="font-semibold text-navy-700 text-sm">データフロー全体の可視化</h3>
+      </div>
+      <div class="text-xs text-warm-600 leading-relaxed">
+        <p class="mb-2">新人は「流れは追えるけど、なぜこの順番なのかが分からない」で止まった。</p>
+        <p>AIはMermaid図でパイプライン全体を図示。fn3()がfn2/y/zとは独立のブランチであること、前年比較がオプショナルであることまで構造化した。</p>
+      </div>
+    </div>
+
+    <div class="bg-white border border-warm-200 rounded-lg p-5 shadow-sm metric-card">
+      <div class="flex items-center gap-2 mb-3">
+        <span class="inline-block w-8 h-8 rounded-full bg-navy-600 text-white text-sm font-bold flex items-center justify-center">3</span>
+        <h3 class="font-semibold text-navy-700 text-sm">デッドコードと技術的負債</h3>
+      </div>
+      <div class="text-xs text-warm-600 leading-relaxed">
+        <p class="mb-2">新人は「T, Qが未使用」「fix()も未使用」まで辿り着いたが、_R/_Vの存在意義は不明のまま。</p>
+        <p>AIは6件のデッドコードを全て列挙し、それぞれの経緯を推測。削除判断の材料を提供した。</p>
+      </div>
+    </div>
+
+    <div class="bg-white border border-warm-200 rounded-lg p-5 shadow-sm metric-card">
+      <div class="flex items-center gap-2 mb-3">
+        <span class="inline-block w-8 h-8 rounded-full bg-navy-600 text-white text-sm font-bold flex items-center justify-center">4</span>
+        <h3 class="font-semibold text-navy-700 text-sm">リネーム提案の即時生成</h3>
+      </div>
+      <div class="text-xs text-warm-600 leading-relaxed">
+        <p class="mb-2">新人の調査メモにリネーム提案はない。理解で精一杯。</p>
+        <p>AIはファイル名・関数名・変数名・引数名の全てについて「現在→提案」の対応表を生成。そのままリファクタリングのPRに使える品質。</p>
+      </div>
+    </div>
+
+    <div class="bg-white border border-warm-200 rounded-lg p-5 shadow-sm metric-card">
+      <div class="flex items-center gap-2 mb-3">
+        <span class="inline-block w-8 h-8 rounded-full bg-navy-600 text-white text-sm font-bold flex items-center justify-center">5</span>
+        <h3 class="font-semibold text-navy-700 text-sm">改善ロードマップ</h3>
+      </div>
+      <div class="text-xs text-warm-600 leading-relaxed">
+        <p class="mb-2">新人は「ドキュメントがないコードを引き継ぐのは無理がある」で終わった。</p>
+        <p>AIは優先度・工数・効果を添えた改善ロードマップを出力。「まず何をすべきか」が明確になり、次のアクションに直結する。</p>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- デモ手順 -->
+<section class="bg-navy-50 border-t border-b border-warm-200">
+  <div class="max-w-7xl mx-auto px-6 py-10">
+    <h2 class="text-lg font-bold text-navy-600 mb-6">デモ手順</h2>
+
+    <div class="space-y-5">
+      <div class="flex gap-4">
+        <span class="flex-shrink-0 w-8 h-8 rounded-full bg-navy-600 text-white text-sm font-bold flex items-center justify-center mt-0.5">1</span>
+        <div>
+          <p class="text-sm font-semibold text-navy-700">対象コードを参加者に見せる</p>
+          <p class="text-xs text-warm-500 mt-1">上のコードタブを切り替えながら「これが引き継いだコードです」と紹介。2-3分間、参加者に読ませる。「fn1は何をしていますか？」と聞く。</p>
+        </div>
+      </div>
+
+      <div class="flex gap-4">
+        <span class="flex-shrink-0 w-8 h-8 rounded-full bg-navy-600 text-white text-sm font-bold flex items-center justify-center mt-0.5">2</span>
+        <div>
+          <p class="text-sm font-semibold text-navy-700">Before（従来の調査結果）を見せる</p>
+          <p class="text-xs text-warm-500 mt-1">左カラムの調査メモを紹介。「新人エンジニアが8時間かけた成果がこれです。calc.pyの理解は諦めています。」</p>
+        </div>
+      </div>
+
+      <div class="flex gap-4">
+        <span class="flex-shrink-0 w-8 h-8 rounded-full bg-navy-600 text-white text-sm font-bold flex items-center justify-center mt-0.5">3</span>
+        <div>
+          <p class="text-sm font-semibold text-navy-700">以下のプロンプトをClaude Codeに投入する</p>
+          <p class="text-xs text-warm-500 mt-1">ターミナルでClaude Codeを起動し、下のプロンプトをそのまま貼り付ける。</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="mt-6 relative">
+      <div class="absolute top-3 right-3 z-10">
+        <button id="copyPromptBtn" class="copy-btn bg-navy-600 hover:bg-navy-500 text-white text-xs px-3 py-1.5 rounded shadow-sm">
+          コピー
+        </button>
+      </div>
+      <div class="code-block rounded-lg overflow-hidden border border-navy-200">
+        <pre><code class="language-markdown" id="promptContent">input/ ディレクトリにある6つのPythonファイル（main.py, proc.py, calc.py, viz.py, util.py, cfg.py）を読んでください。
+コメント・docstring・ドキュメントが一切ないレガシーコードです。変数名と関数名が1文字で、セミコロンや三項演算子のネストで1行に圧縮されています。
+
+以下の6項目を日本語で出力してください。
+
+1. 全ファイル・全関数の完全解説
+   - 関数ごとに: 現在の名前 → 推定される本来の目的
+   - 各引数の意味と型
+   - 戻り値の内容と構造
+   - cfg.pyの全変数の意味（未使用のものは明示）
+
+2. パイプライン全体のデータフロー図（Mermaid形式 flowchart TD）
+   - main.py の run() を起点に、どの関数がどの順で呼ばれるか
+   - データがどう変換されていくか
+   - 入力ファイルと出力ファイルの関係
+
+3. リネーム提案の対応表
+   - ファイル名、関数名、変数名のすべてについて
+   - 「現在の名前 → 提案する名前」の表形式
+   - 引数名も含む
+
+4. コード品質の問題点
+   - 可読性、保守性、バグリスクの3観点で分類
+   - 各問題に対する具体的な改善案を添える
+
+5. 技術的負債とリスク
+   - デッドコード（未使用変数・未使用関数）の特定と経緯の推測
+   - エラーハンドリングの不備箇所
+   - テスト容易性の問題
+   - 運用リスク
+
+6. 改善提案の優先度付きロードマップ
+   - 高/中/低の3段階で分類
+   - 工数の目安と期待効果を添える</code></pre>
+      </div>
+    </div>
+
+    <div class="mt-5 flex gap-4">
+      <span class="flex-shrink-0 w-8 h-8 rounded-full bg-navy-600 text-white text-sm font-bold flex items-center justify-center mt-0.5">4</span>
+      <div>
+        <p class="text-sm font-semibold text-navy-700">30秒後の出力とBefore調査メモを比較する</p>
+        <p class="text-xs text-warm-500 mt-1">AIの出力が右カラムの内容と同等であることを確認。8時間 vs 30秒、理解度50% vs 100%の対比を強調する。</p>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- フッター -->
+<footer class="bg-navy-600 text-navy-200">
+  <div class="max-w-7xl mx-auto px-6 py-6 flex items-center justify-between">
+    <div class="text-sm">11_legacy-reading / AI開発デモ集</div>
+    <a href="../showcase/index.html" class="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white text-sm px-4 py-2 rounded transition-colors">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+      showcaseに戻る
+    </a>
+  </div>
+</footer>
+
+<script>
+// タブ切り替え
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const tab = btn.dataset.tab;
+    const container = btn.closest('section') || btn.closest('.border');
+    container.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    container.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    const panel = document.getElementById(tab);
+    if (panel) {
+      panel.classList.add('active');
+      panel.classList.add('fade-in');
+      setTimeout(() => panel.classList.remove('fade-in'), 400);
+    }
+  });
+});
+
+// プロンプトコピー
+document.getElementById('copyPromptBtn').addEventListener('click', function() {
+  const text = document.getElementById('promptContent').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    this.textContent = 'コピー済み';
+    this.classList.add('bg-green-600');
+    this.classList.remove('bg-navy-600');
+    setTimeout(() => {
+      this.textContent = 'コピー';
+      this.classList.remove('bg-green-600');
+      this.classList.add('bg-navy-600');
+    }, 2000);
+  });
+});
+</script>
+
+</body>
+</html>

@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>営業ダッシュボード</title>
+</head>
+<body style="margin: 0; font-family: Arial; background: #f0f0f0;">
+
+<!-- ヘッダー -->
+<div style="background-color: #333; color: white; padding: 10px 20px; width: 1200px; display: flex; justify-content: space-between; align-items: center;">
+  <div style="font-size: 20px; font-weight: bold;">営業管理システム</div>
+  <div style="display: flex; gap: 10px; align-items: center;">
+    <input type="text" placeholder="検索..." style="padding: 5px; width: 200px; border: 1px solid #999;">
+    <span style="padding: 5px; cursor: pointer;">🔔 通知</span>
+    <span style="padding: 5px;">山田 太郎</span>
+  </div>
+</div>
+
+<!-- メインコンテンツ -->
+<div style="display: flex; width: 1200px;">
+
+  <!-- サイドバー -->
+  <div style="width: 200px; background-color: #e8e8e8; padding: 15px; min-height: 800px;">
+    <div style="padding: 10px; background-color: #333; color: white; margin-bottom: 5px; cursor: pointer;">📊 ダッシュボード概要</div>
+    <div style="padding: 10px; margin-bottom: 5px; cursor: pointer;">👥 顧客管理</div>
+    <div style="padding: 10px; margin-bottom: 5px; cursor: pointer;">📋 商談管理</div>
+    <div style="padding: 10px; margin-bottom: 5px; cursor: pointer;">📈 レポート</div>
+    <div style="padding: 10px; margin-bottom: 5px; cursor: pointer;">⚙️ 設定</div>
+  </div>
+
+  <!-- コンテンツ -->
+  <div style="width: 1000px; padding: 20px;">
+
+    <div style="font-size: 22px; font-weight: bold; margin-bottom: 20px; color: #333;">ダッシュボード概要</div>
+
+    <!-- KPIカード -->
+    <div style="display: flex; gap: 15px; margin-bottom: 30px;">
+      <div style="width: 230px; background: white; border: 1px solid #ddd; padding: 20px; box-shadow: 2px 2px 5px rgba(0,0,0,0.1);">
+        <div style="color: gray; font-size: 13px;">月間売上</div>
+        <div style="font-size: 28px; font-weight: bold; margin-top: 5px; color: #333;">¥12,500,000</div>
+        <div style="color: green; font-size: 12px; margin-top: 5px;">▲ +8.2% 前月比</div>
+      </div>
+      <div style="width: 230px; background: white; border: 1px solid #ddd; padding: 20px; box-shadow: 2px 2px 5px rgba(0,0,0,0.1);">
+        <div style="color: gray; font-size: 13px;">新規顧客数</div>
+        <div style="font-size: 28px; font-weight: bold; margin-top: 5px; color: #333;">48件</div>
+        <div style="color: green; font-size: 12px; margin-top: 5px;">▲ +12件 前月比</div>
+      </div>
+      <div style="width: 230px; background: white; border: 1px solid #ddd; padding: 20px; box-shadow: 2px 2px 5px rgba(0,0,0,0.1);">
+        <div style="color: gray; font-size: 13px;">成約率</div>
+        <div style="font-size: 28px; font-weight: bold; margin-top: 5px; color: #333;">32.5%</div>
+        <div style="color: red; font-size: 12px; margin-top: 5px;">▼ -1.2pt 前月比</div>
+      </div>
+      <div style="width: 230px; background: white; border: 1px solid #ddd; padding: 20px; box-shadow: 2px 2px 5px rgba(0,0,0,0.1);">
+        <div style="color: gray; font-size: 13px;">平均受注単価</div>
+        <div style="font-size: 28px; font-weight: bold; margin-top: 5px; color: #333;">¥260,000</div>
+        <div style="color: green; font-size: 12px; margin-top: 5px;">▲ +¥15,000 前月比</div>
+      </div>
+    </div>
+
+    <!-- グラフエリア -->
+    <div style="border: 1px solid #ddd; padding: 20px; margin-bottom: 30px; height: 250px; background: white; box-shadow: 2px 2px 5px rgba(0,0,0,0.1);">
+      <div style="font-size: 16px; font-weight: bold; margin-bottom: 15px;">📈 月別売上推移</div>
+      <div style="color: gray; text-align: center; padding-top: 80px; font-size: 14px;">
+        ＜ グラフ表示エリア ＞<br>
+        <span style="font-size: 11px;">（Chart.js等で実装予定）</span>
+      </div>
+    </div>
+
+    <!-- テーブル -->
+    <div style="margin-bottom: 30px;">
+      <div style="font-size: 16px; font-weight: bold; margin-bottom: 15px;">直近の受注一覧</div>
+      <table style="width: 100%; border-collapse: collapse; background: white; box-shadow: 2px 2px 5px rgba(0,0,0,0.1);">
+        <tr style="background-color: #555; color: white;">
+          <td style="padding: 12px; border: 1px solid #ddd; font-weight: bold;">注文番号</td>
+          <td style="padding: 12px; border: 1px solid #ddd; font-weight: bold;">顧客名</td>
+          <td style="padding: 12px; border: 1px solid #ddd; font-weight: bold;">金額</td>
+          <td style="padding: 12px; border: 1px solid #ddd; font-weight: bold;">日付</td>
+          <td style="padding: 12px; border: 1px solid #ddd; font-weight: bold;">状態</td>
+        </tr>
+        <tr>
+          <td style="padding: 10px; border: 1px solid #ddd;">ORD-0891</td>
+          <td style="padding: 10px; border: 1px solid #ddd;">田中商事</td>
+          <td style="padding: 10px; border: 1px solid #ddd;">¥580,000</td>
+          <td style="padding: 10px; border: 1px solid #ddd;">2026/03/20</td>
+          <td style="padding: 10px; border: 1px solid #ddd;"><span style="background: #22c55e; color: white; padding: 2px 8px; border-radius: 3px;">✅ 完了</span></td>
+        </tr>
+        <tr style="background: #fafafa;">
+          <td style="padding: 10px; border: 1px solid #ddd;">ORD-0890</td>
+          <td style="padding: 10px; border: 1px solid #ddd;">鈴木工業</td>
+          <td style="padding: 10px; border: 1px solid #ddd;">¥1,200,000</td>
+          <td style="padding: 10px; border: 1px solid #ddd;">2026/03/19</td>
+          <td style="padding: 10px; border: 1px solid #ddd;"><span style="background: #f59e0b; color: white; padding: 2px 8px; border-radius: 3px;">⏳ 処理中</span></td>
+        </tr>
+        <tr>
+          <td style="padding: 10px; border: 1px solid #ddd;">ORD-0889</td>
+          <td style="padding: 10px; border: 1px solid #ddd;">佐藤建設</td>
+          <td style="padding: 10px; border: 1px solid #ddd;">¥340,000</td>
+          <td style="padding: 10px; border: 1px solid #ddd;">2026/03/18</td>
+          <td style="padding: 10px; border: 1px solid #ddd;"><span style="background: #22c55e; color: white; padding: 2px 8px; border-radius: 3px;">✅ 完了</span></td>
+        </tr>
+        <tr style="background: #fafafa;">
+          <td style="padding: 10px; border: 1px solid #ddd;">ORD-0888</td>
+          <td style="padding: 10px; border: 1px solid #ddd;">高橋電機</td>
+          <td style="padding: 10px; border: 1px solid #ddd;">¥890,000</td>
+          <td style="padding: 10px; border: 1px solid #ddd;">2026/03/17</td>
+          <td style="padding: 10px; border: 1px solid #ddd;"><span style="background: #9ca3af; color: white; padding: 2px 8px; border-radius: 3px;">⏸ 保留</span></td>
+        </tr>
+        <tr>
+          <td style="padding: 10px; border: 1px solid #ddd;">ORD-0887</td>
+          <td style="padding: 10px; border: 1px solid #ddd;">伊藤物産</td>
+          <td style="padding: 10px; border: 1px solid #ddd;">¥2,100,000</td>
+          <td style="padding: 10px; border: 1px solid #ddd;">2026/03/15</td>
+          <td style="padding: 10px; border: 1px solid #ddd;"><span style="background: #22c55e; color: white; padding: 2px 8px; border-radius: 3px;">✅ 完了</span></td>
+        </tr>
+      </table>
+    </div>
+
+  </div>
+</div>
+
+<!-- フッター -->
+<div style="background-color: #333; color: white; padding: 15px; text-align: center; width: 1200px; font-size: 13px;">
+  &copy; 2026 営業管理システム &nbsp;|&nbsp; 利用規約 &nbsp;|&nbsp; お問い合わせ
+</div>
+
+</body>
+</html>

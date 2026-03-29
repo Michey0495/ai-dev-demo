@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>07 コードレビュー -- AI駆動開発デモ</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-typescript.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-tsx.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-markdown.min.js"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        navy: {
+          50: '#eef2f7',
+          100: '#d4dce8',
+          200: '#a9b9d1',
+          300: '#7e96ba',
+          400: '#5373a3',
+          500: '#2d5587',
+          600: '#1e3a5f',
+          700: '#172e4d',
+          800: '#10213b',
+          900: '#091529'
+        },
+        warm: {
+          50: '#f9fafb',
+          100: '#f3f4f6',
+          200: '#e5e7eb',
+          300: '#d1d5db',
+          400: '#9ca3af',
+          500: '#6b7280',
+          600: '#4b5563',
+          700: '#374151',
+          800: '#1f2937',
+          900: '#111827'
+        }
+      }
+    }
+  }
+}
+</script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+  body { font-family: 'Noto Sans JP', sans-serif; }
+  code, pre { font-family: 'JetBrains Mono', monospace; }
+  pre[class*="language-"] { margin: 0; border-radius: 0.5rem; font-size: 0.8rem; line-height: 1.5; }
+  code[class*="language-"] { font-size: 0.8rem; }
+  .fade-in { animation: fadeIn 0.6s ease-out forwards; opacity: 0; }
+  .fade-in-delay-1 { animation-delay: 0.15s; }
+  .fade-in-delay-2 { animation-delay: 0.3s; }
+  .fade-in-delay-3 { animation-delay: 0.45s; }
+  .fade-in-delay-4 { animation-delay: 0.6s; }
+  @keyframes fadeIn { to { opacity: 1; } }
+  .tab-btn.active { border-bottom: 3px solid #1e3a5f; color: #1e3a5f; font-weight: 600; }
+  .tab-btn { border-bottom: 3px solid transparent; transition: all 0.2s; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+  .annotation-before { border-left: 3px solid #dc2626; background: #fef2f2; }
+  .annotation-after { border-left: 3px solid #1e3a5f; background: #eef2f7; }
+  .stat-card { transition: transform 0.2s; }
+  .stat-card:hover { transform: translateY(-2px); }
+  .copy-btn { transition: all 0.2s; }
+  .copy-btn:hover { background: #1e3a5f; color: white; }
+  .copy-btn.copied { background: #059669; color: white; }
+  .diff-card { transition: transform 0.2s, box-shadow 0.2s; }
+  .diff-card:hover { transform: translateY(-3px); box-shadow: 0 8px 25px rgba(30, 58, 95, 0.15); }
+  .severity-critical { background: #fef2f2; border-color: #fca5a5; color: #991b1b; }
+  .severity-warning { background: #fffbeb; border-color: #fcd34d; color: #92400e; }
+  .severity-info { background: #eef2f7; border-color: #a9b9d1; color: #1e3a5f; }
+  .scroll-indicator { width: 100%; height: 3px; background: #e5e7eb; position: fixed; top: 0; left: 0; z-index: 100; }
+  .scroll-indicator-bar { height: 100%; background: #1e3a5f; width: 0%; transition: width 0.1s; }
+</style>
+</head>
+<body class="bg-white text-warm-800">
+
+<div class="scroll-indicator"><div class="scroll-indicator-bar" id="scrollBar"></div></div>
+
+<!-- ヘッダー -->
+<header class="bg-navy-600 text-white sticky top-0 z-50 shadow-lg">
+  <div class="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+    <div class="flex items-center gap-4">
+      <span class="bg-white/20 text-white text-xs font-mono px-3 py-1 rounded-full tracking-wider">07</span>
+      <div>
+        <h1 class="text-xl font-bold tracking-tight">コードレビュー</h1>
+        <p class="text-navy-200 text-sm">PRの自動レビュー -- 人間が見落とす致命バグをAIが拾う</p>
+      </div>
+    </div>
+    <a href="../showcase/index.html" class="text-sm text-navy-200 hover:text-white border border-navy-400 hover:border-white px-4 py-2 rounded-lg transition-all">
+      ← showcaseに戻る
+    </a>
+  </div>
+</header>
+
+<!-- ヒーロー -->
+<section class="bg-gradient-to-br from-navy-600 via-navy-700 to-navy-800 text-white py-16">
+  <div class="max-w-5xl mx-auto px-6">
+    <p class="text-navy-200 text-sm mb-4 tracking-wider uppercase">AI-Driven Development Demo</p>
+    <h2 class="text-3xl font-bold mb-6 leading-snug">シニアエンジニアが20分かけて2件。<br>AIは30秒で12件、CWE番号付き。</h2>
+    <p class="text-navy-200 text-lg leading-relaxed max-w-3xl mb-10">
+      ショッピングカート機能のPRに対するコードレビュー。経験8年のバックエンドリードが命名規則だけを指摘した同じdiffを、Claude Codeはセキュリティ脆弱性4件・競合状態・N+1クエリまで30秒で検出した。
+    </p>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+      <div class="stat-card bg-white/10 backdrop-blur rounded-xl p-5 text-center">
+        <div class="text-3xl font-bold">20分</div>
+        <div class="text-navy-300 text-sm mt-1">手動レビュー時間</div>
+      </div>
+      <div class="stat-card bg-white/10 backdrop-blur rounded-xl p-5 text-center">
+        <div class="text-3xl font-bold">30秒</div>
+        <div class="text-navy-300 text-sm mt-1">AIレビュー時間</div>
+      </div>
+      <div class="stat-card bg-white/10 backdrop-blur rounded-xl p-5 text-center">
+        <div class="text-3xl font-bold text-red-300">0件</div>
+        <div class="text-navy-300 text-sm mt-1">手動 Critical検出</div>
+      </div>
+      <div class="stat-card bg-white/10 backdrop-blur rounded-xl p-5 text-center">
+        <div class="text-3xl font-bold text-green-300">4件</div>
+        <div class="text-navy-300 text-sm mt-1">AI Critical検出</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Before / After 比較 -->
+<section class="max-w-7xl mx-auto px-6 py-16">
+  <div class="text-center mb-12">
+    <h2 class="text-2xl font-bold text-navy-600 mb-3">Before / After 比較</h2>
+    <p class="text-warm-500">同一PRに対する手動レビューとAIレビューの差を並べて確認する</p>
+  </div>
+
+  <div class="grid lg:grid-cols-2 gap-8">
+
+    <!-- Before -->
+    <div class="fade-in">
+      <div class="rounded-2xl border-2 border-warm-200 overflow-hidden shadow-sm">
+        <div class="bg-warm-100 px-6 py-4 flex items-center justify-between">
+          <div>
+            <span class="text-xs font-mono text-warm-500 tracking-wider uppercase">Before</span>
+            <h3 class="text-lg font-bold text-warm-700 mt-1">手動レビュー（シニアエンジニア）</h3>
+          </div>
+          <div class="text-right">
+            <div class="text-2xl font-bold text-warm-600">2件</div>
+            <div class="text-xs text-warm-400">命名のみ</div>
+          </div>
+        </div>
+        <div class="p-6 space-y-5">
+          <div class="text-sm text-warm-500 mb-3">
+            レビュアー: 田中（バックエンドリード / 8年目） -- 所要時間: 約20分
+          </div>
+
+          <div class="annotation-before rounded-lg p-4">
+            <div class="flex items-start gap-3">
+              <span class="bg-red-100 text-red-700 text-xs font-mono px-2 py-0.5 rounded mt-0.5 whitespace-nowrap">命名</span>
+              <div>
+                <p class="text-sm font-medium text-warm-700 mb-2">コメント 1: addItem → addItemToCart</p>
+                <pre class="!text-xs !bg-warm-800 rounded-lg"><code class="language-typescript">export async function addItem(userId: string, request: AddItemRequest) {</code></pre>
+                <p class="text-sm text-warm-600 mt-2">他モジュールからimportされたとき混乱するため、addItemToCart に変更してほしい。removeItem も同様。</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="annotation-before rounded-lg p-4">
+            <div class="flex items-start gap-3">
+              <span class="bg-red-100 text-red-700 text-xs font-mono px-2 py-0.5 rounded mt-0.5 whitespace-nowrap">命名</span>
+              <div>
+                <p class="text-sm font-medium text-warm-700 mb-2">コメント 2: 未使用importの指摘</p>
+                <pre class="!text-xs !bg-warm-800 rounded-lg"><code class="language-typescript">import { Cart, CartItem, CartSummary, AddItemRequest } from './types'</code></pre>
+                <p class="text-sm text-warm-600 mt-2">Cart がimportされているが関数内では未使用。削除してほしい。</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-warm-50 rounded-lg p-4 border border-warm-200">
+            <p class="text-sm text-warm-500 italic">総評: 上記2点を修正すればLGTM。型定義もきちんと分離されていて良い。</p>
+          </div>
+
+          <div class="border-t border-warm-200 pt-4">
+            <p class="text-xs text-warm-400">見逃した致命的問題: XSS脆弱性、認証バイパス、競合状態、N+1クエリ、入力バリデーション不備、any型乱用 ...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- After -->
+    <div class="fade-in fade-in-delay-1">
+      <div class="rounded-2xl border-2 border-navy-200 overflow-hidden shadow-sm">
+        <div class="bg-navy-50 px-6 py-4 flex items-center justify-between">
+          <div>
+            <span class="text-xs font-mono text-navy-400 tracking-wider uppercase">After</span>
+            <h3 class="text-lg font-bold text-navy-700 mt-1">AIレビュー（Claude Code）</h3>
+          </div>
+          <div class="text-right">
+            <div class="text-2xl font-bold text-navy-600">12件</div>
+            <div class="text-xs text-navy-400">CWE番号付き</div>
+          </div>
+        </div>
+        <div class="p-6 space-y-4">
+          <div class="text-sm text-warm-500 mb-3">
+            所要時間: 約30秒 -- 全件に修正コードスニペット付き
+          </div>
+
+          <!-- Severity tabs -->
+          <div class="flex gap-1 border-b border-warm-200 mb-4" id="severityTabs">
+            <button class="tab-btn active px-4 py-2 text-sm" data-tab="critical">Critical (4)</button>
+            <button class="tab-btn px-4 py-2 text-sm text-warm-400" data-tab="warning">Warning (3)</button>
+            <button class="tab-btn px-4 py-2 text-sm text-warm-400" data-tab="info">Info (5)</button>
+          </div>
+
+          <!-- Critical -->
+          <div class="tab-content active space-y-4" id="tab-critical">
+            <div class="annotation-after rounded-lg p-4">
+              <div class="flex items-start gap-3">
+                <span class="severity-critical text-xs font-mono px-2 py-0.5 rounded border whitespace-nowrap">Critical</span>
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm font-medium text-navy-700">XSS脆弱性 -- Stored XSS (CWE-79)</p>
+                  <p class="text-xs text-warm-400 mt-1">CartItemCard.tsx L36-39</p>
+                  <pre class="!text-xs !bg-warm-800 rounded-lg mt-2"><code class="language-tsx">{item.note && (
+  &lt;div
+    className="cart-item-note"
+    dangerouslySetInnerHTML={{ __html: item.note }}
+  /&gt;
+)}</code></pre>
+                  <p class="text-sm text-warm-600 mt-2">ユーザー入力をサニタイズせずHTML描画。<code class="text-xs bg-warm-100 px-1 rounded">&lt;img onerror="..."&gt;</code> でセッションCookie窃取が可能。</p>
+                  <details class="mt-3">
+                    <summary class="text-xs text-navy-500 cursor-pointer hover:text-navy-700">修正コードを見る</summary>
+                    <pre class="!text-xs !bg-warm-800 rounded-lg mt-2"><code class="language-tsx">// テキストとしてそのまま描画（推奨）
+{item.note && (
+  &lt;p className="cart-item-note"&gt;{item.note}&lt;/p&gt;
+)}
+
+// リッチテキストが必要なら DOMPurify
+import DOMPurify from 'dompurify'
+dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(item.note) }}</code></pre>
+                  </details>
+                </div>
+              </div>
+            </div>
+
+            <div class="annotation-after rounded-lg p-4">
+              <div class="flex items-start gap-3">
+                <span class="severity-critical text-xs font-mono px-2 py-0.5 rounded border whitespace-nowrap">Critical</span>
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm font-medium text-navy-700">認証バイパス -- デバッグエンドポイント残留 (CWE-489)</p>
+                  <p class="text-xs text-warm-400 mt-1">cart-router.ts L37-40</p>
+                  <pre class="!text-xs !bg-warm-800 rounded-lg mt-2"><code class="language-typescript">router.get('/cart/debug', async (req, res) => {
+  const allCarts = await prisma.cart.findMany({ include: { items: true } })
+  res.json(allCarts)
+})</code></pre>
+                  <p class="text-sm text-warm-600 mt-2">認証なしで全ユーザーのカートを返却。全顧客の購買データが <code class="text-xs bg-warm-100 px-1 rounded">GET /cart/debug</code> で漏洩する。</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="annotation-after rounded-lg p-4">
+              <div class="flex items-start gap-3">
+                <span class="severity-critical text-xs font-mono px-2 py-0.5 rounded border whitespace-nowrap">Critical</span>
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm font-medium text-navy-700">N+1クエリ -- ループ内商品個別取得 (CWE-400)</p>
+                  <p class="text-xs text-warm-400 mt-1">cart-service.ts L63-72</p>
+                  <pre class="!text-xs !bg-warm-800 rounded-lg mt-2"><code class="language-typescript">for (const item of cart.items) {
+  const product = await prisma.product.findUnique({
+    where: { id: item.productId },
+  })
+  // ... N商品 → N回SQL
+}</code></pre>
+                  <p class="text-sm text-warm-600 mt-2">カートの商品数に比例してSQLが増加。100商品で100回のDBラウンドトリップ。include で1回のJOINに集約すべき。</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="annotation-after rounded-lg p-4">
+              <div class="flex items-start gap-3">
+                <span class="severity-critical text-xs font-mono px-2 py-0.5 rounded border whitespace-nowrap">Critical</span>
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm font-medium text-navy-700">競合状態 -- Lost Update (CWE-362)</p>
+                  <p class="text-xs text-warm-400 mt-1">cart-service.ts L7-51</p>
+                  <pre class="!text-xs !bg-warm-800 rounded-lg mt-2"><code class="language-typescript">// read-then-write パターン（TOCTOU）
+const cart = await prisma.cart.findFirst({ ... })       // SELECT
+const existingItem = cart.items.find(...)                // アプリ側 find
+await prisma.cartItem.update({ data: { quantity: existingItem.quantity + request.quantity } })
+// ↑ 2タブ同時操作で片方の加算が消失する</code></pre>
+                  <p class="text-sm text-warm-600 mt-2">トランザクション + <code class="text-xs bg-warm-100 px-1 rounded">quantity: { increment }</code> のアトミック操作で解決。</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Warning -->
+          <div class="tab-content space-y-4" id="tab-warning">
+            <div class="annotation-after rounded-lg p-4">
+              <div class="flex items-start gap-3">
+                <span class="severity-warning text-xs font-mono px-2 py-0.5 rounded border whitespace-nowrap">Warning</span>
+                <div>
+                  <p class="text-sm font-medium text-navy-700">入力バリデーション不備 (CWE-20)</p>
+                  <p class="text-xs text-warm-400 mt-1">cart-router.ts L6-10</p>
+                  <p class="text-sm text-warm-600 mt-2">req.body をそのまま addItem に渡しており、quantity が負数・小数・文字列でもPrismaまで到達する。Zodでのバリデーションを推奨。</p>
+                </div>
+              </div>
+            </div>
+            <div class="annotation-after rounded-lg p-4">
+              <div class="flex items-start gap-3">
+                <span class="severity-warning text-xs font-mono px-2 py-0.5 rounded border whitespace-nowrap">Warning</span>
+                <div>
+                  <p class="text-sm font-medium text-navy-700">エラー情報漏洩リスク (CWE-209)</p>
+                  <p class="text-xs text-warm-400 mt-1">cart-router.ts 全エンドポイント</p>
+                  <p class="text-sm text-warm-600 mt-2">現状は固定メッセージだが、error オブジェクトをそのままレスポンスに含める変更が入ればPrisma接続文字列が露出する。グローバルエラーハンドラへの集約を推奨。</p>
+                </div>
+              </div>
+            </div>
+            <div class="annotation-after rounded-lg p-4">
+              <div class="flex items-start gap-3">
+                <span class="severity-warning text-xs font-mono px-2 py-0.5 rounded border whitespace-nowrap">Warning</span>
+                <div>
+                  <p class="text-sm font-medium text-navy-700">any型の乱用 -- 4箇所 (CWE-1287)</p>
+                  <p class="text-xs text-warm-400 mt-1">cart-service.ts L31, L78, L80, L88</p>
+                  <p class="text-sm text-warm-600 mt-2">TypeScriptの型チェックが完全に無効化されている。Prisma生成型を活用すれば、コンパイル時にフィールド名の誤りを検出可能。</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Info -->
+          <div class="tab-content space-y-4" id="tab-info">
+            <div class="annotation-after rounded-lg p-4">
+              <div class="flex items-start gap-3">
+                <span class="severity-info text-xs font-mono px-2 py-0.5 rounded border whitespace-nowrap">Info</span>
+                <div>
+                  <p class="text-sm font-medium text-navy-700">デッドコード: 未使用 formatCurrency</p>
+                  <p class="text-xs text-warm-400 mt-1">cart-service.ts L98-100</p>
+                </div>
+              </div>
+            </div>
+            <div class="annotation-after rounded-lg p-4">
+              <div class="flex items-start gap-3">
+                <span class="severity-info text-xs font-mono px-2 py-0.5 rounded border whitespace-nowrap">Info</span>
+                <div>
+                  <p class="text-sm font-medium text-navy-700">Nullアクセス (CWE-476) x2箇所</p>
+                  <p class="text-xs text-warm-400 mt-1">cart-service.ts L66, L86-88</p>
+                </div>
+              </div>
+            </div>
+            <div class="annotation-after rounded-lg p-4">
+              <div class="flex items-start gap-3">
+                <span class="severity-info text-xs font-mono px-2 py-0.5 rounded border whitespace-nowrap">Info</span>
+                <div>
+                  <p class="text-sm font-medium text-navy-700">命名改善: addItem → addItemToCart</p>
+                  <p class="text-xs text-warm-400 mt-1">cart-service.ts -- 人間レビューと同じ指摘も網羅</p>
+                </div>
+              </div>
+            </div>
+            <div class="annotation-after rounded-lg p-4">
+              <div class="flex items-start gap-3">
+                <span class="severity-info text-xs font-mono px-2 py-0.5 rounded border whitespace-nowrap">Info</span>
+                <div>
+                  <p class="text-sm font-medium text-navy-700">マジックナンバー: 99 → MAX_ITEM_QUANTITY</p>
+                  <p class="text-xs text-warm-400 mt-1">CartItemCard.tsx L24</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 差分ハイライト -->
+<section class="bg-warm-50 py-16">
+  <div class="max-w-7xl mx-auto px-6">
+    <div class="text-center mb-12">
+      <h2 class="text-2xl font-bold text-navy-600 mb-3">検出力の差 -- 具体的な比較</h2>
+      <p class="text-warm-500">手動レビューが拾った範囲と、AIが追加で発見した範囲</p>
+    </div>
+    <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+
+      <div class="diff-card bg-white rounded-xl p-6 border border-warm-200 shadow-sm fade-in">
+        <div class="flex items-center gap-2 mb-4">
+          <div class="w-2 h-2 rounded-full bg-red-400"></div>
+          <span class="text-xs font-mono text-warm-400">CWE-79</span>
+        </div>
+        <h3 class="font-bold text-navy-700 mb-2">XSS脆弱性</h3>
+        <p class="text-sm text-warm-600 leading-relaxed mb-4">dangerouslySetInnerHTML でユーザー入力を未サニタイズ描画。Stored XSSでセッション窃取が可能。</p>
+        <div class="flex gap-2 text-xs">
+          <span class="bg-warm-100 text-warm-500 px-2 py-1 rounded">手動: 未検出</span>
+          <span class="bg-navy-50 text-navy-600 px-2 py-1 rounded">AI: Critical</span>
+        </div>
+      </div>
+
+      <div class="diff-card bg-white rounded-xl p-6 border border-warm-200 shadow-sm fade-in fade-in-delay-1">
+        <div class="flex items-center gap-2 mb-4">
+          <div class="w-2 h-2 rounded-full bg-red-400"></div>
+          <span class="text-xs font-mono text-warm-400">CWE-362</span>
+        </div>
+        <h3 class="font-bold text-navy-700 mb-2">競合状態</h3>
+        <p class="text-sm text-warm-600 leading-relaxed mb-4">read-then-writeパターンで同時更新時にLost Updateが発生。カート数量の加算が消失する。</p>
+        <div class="flex gap-2 text-xs">
+          <span class="bg-warm-100 text-warm-500 px-2 py-1 rounded">手動: 未検出</span>
+          <span class="bg-navy-50 text-navy-600 px-2 py-1 rounded">AI: Critical</span>
+        </div>
+      </div>
+
+      <div class="diff-card bg-white rounded-xl p-6 border border-warm-200 shadow-sm fade-in fade-in-delay-2">
+        <div class="flex items-center gap-2 mb-4">
+          <div class="w-2 h-2 rounded-full bg-red-400"></div>
+          <span class="text-xs font-mono text-warm-400">CWE-400</span>
+        </div>
+        <h3 class="font-bold text-navy-700 mb-2">N+1クエリ</h3>
+        <p class="text-sm text-warm-600 leading-relaxed mb-4">forループ内で商品を1件ずつSELECT。カート100商品で100回のDBラウンドトリップ。</p>
+        <div class="flex gap-2 text-xs">
+          <span class="bg-warm-100 text-warm-500 px-2 py-1 rounded">手動: 未検出</span>
+          <span class="bg-navy-50 text-navy-600 px-2 py-1 rounded">AI: Critical</span>
+        </div>
+      </div>
+
+      <div class="diff-card bg-white rounded-xl p-6 border border-warm-200 shadow-sm fade-in fade-in-delay-3">
+        <div class="flex items-center gap-2 mb-4">
+          <div class="w-2 h-2 rounded-full bg-red-400"></div>
+          <span class="text-xs font-mono text-warm-400">CWE-489</span>
+        </div>
+        <h3 class="font-bold text-navy-700 mb-2">認証バイパス</h3>
+        <p class="text-sm text-warm-600 leading-relaxed mb-4">デバッグ用エンドポイントが本番コードに残留。認証なしで全顧客データが取得可能。</p>
+        <div class="flex gap-2 text-xs">
+          <span class="bg-warm-100 text-warm-500 px-2 py-1 rounded">手動: 未検出</span>
+          <span class="bg-navy-50 text-navy-600 px-2 py-1 rounded">AI: Critical</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- サマリーテーブル -->
+<section class="max-w-5xl mx-auto px-6 py-16">
+  <div class="text-center mb-10">
+    <h2 class="text-2xl font-bold text-navy-600 mb-3">検出サマリー</h2>
+  </div>
+  <div class="overflow-hidden rounded-xl border border-warm-200 shadow-sm">
+    <table class="w-full">
+      <thead>
+        <tr class="bg-navy-600 text-white text-sm">
+          <th class="text-left px-6 py-3 font-medium">比較項目</th>
+          <th class="text-center px-6 py-3 font-medium">手動レビュー</th>
+          <th class="text-center px-6 py-3 font-medium">AIレビュー</th>
+        </tr>
+      </thead>
+      <tbody class="text-sm">
+        <tr class="border-b border-warm-100">
+          <td class="px-6 py-4 text-warm-700">所要時間</td>
+          <td class="px-6 py-4 text-center text-warm-500">約20分</td>
+          <td class="px-6 py-4 text-center font-medium text-navy-600">約30秒</td>
+        </tr>
+        <tr class="border-b border-warm-100 bg-warm-50">
+          <td class="px-6 py-4 text-warm-700">総検出数</td>
+          <td class="px-6 py-4 text-center text-warm-500">2件（命名のみ）</td>
+          <td class="px-6 py-4 text-center font-medium text-navy-600">12件（CWE番号付き）</td>
+        </tr>
+        <tr class="border-b border-warm-100">
+          <td class="px-6 py-4 text-warm-700">Critical検出</td>
+          <td class="px-6 py-4 text-center text-red-500 font-medium">0件</td>
+          <td class="px-6 py-4 text-center font-medium text-navy-600">4件</td>
+        </tr>
+        <tr class="border-b border-warm-100 bg-warm-50">
+          <td class="px-6 py-4 text-warm-700">セキュリティ指摘</td>
+          <td class="px-6 py-4 text-center text-red-500 font-medium">0件</td>
+          <td class="px-6 py-4 text-center font-medium text-navy-600">4件</td>
+        </tr>
+        <tr>
+          <td class="px-6 py-4 text-warm-700">修正コード提示</td>
+          <td class="px-6 py-4 text-center text-warm-500">なし</td>
+          <td class="px-6 py-4 text-center font-medium text-navy-600">全件に付与</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- プロンプト -->
+<section class="bg-warm-50 py-16">
+  <div class="max-w-5xl mx-auto px-6">
+    <div class="text-center mb-10">
+      <h2 class="text-2xl font-bold text-navy-600 mb-3">デモ手順</h2>
+      <p class="text-warm-500">以下のプロンプトをClaude Codeにそのまま投入するだけ</p>
+    </div>
+
+    <div class="bg-white rounded-2xl border border-warm-200 shadow-sm overflow-hidden">
+      <div class="bg-navy-600 px-6 py-3 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="flex gap-1.5">
+            <div class="w-3 h-3 rounded-full bg-red-400/80"></div>
+            <div class="w-3 h-3 rounded-full bg-yellow-400/80"></div>
+            <div class="w-3 h-3 rounded-full bg-green-400/80"></div>
+          </div>
+          <span class="text-white/70 text-xs font-mono">with-ai/prompt.md</span>
+        </div>
+        <button id="copyPrompt" class="copy-btn text-xs px-3 py-1.5 rounded-lg border border-white/30 text-white/80 hover:text-white cursor-pointer">
+          コピー
+        </button>
+      </div>
+      <div class="p-6" id="promptContent">
+        <pre class="!bg-transparent !p-0 !m-0 !text-sm !leading-relaxed"><code class="language-markdown"># コードレビュー プロンプト
+
+以下のdiffを本番リリース前のコードレビューとして精査してください。
+
+対象ファイル: `./input/cart-feature.diff`
+
+## レビュー観点（優先度順）
+
+1. セキュリティ
+   - XSS, SQLi, SSRF, 認証・認可の不備
+   - ユーザー入力のバリデーション漏れ
+   - デバッグ用コードや機密情報の残留
+2. 並行性・データ整合性
+   - 競合状態（TOCTOU, Lost Update）
+   - トランザクション境界の妥当性
+3. パフォーマンス
+   - N+1クエリ、不要な再取得
+   - メモリ使用量（上限なしの全件取得等）
+4. 型安全性
+   - any型の使用箇所と修正方法
+   - null/undefined の未チェックアクセス
+5. 保守性
+   - デッドコード、命名、マジックナンバー
+
+## 出力形式
+
+各指摘を以下のフォーマットで出力:
+
+- カテゴリ別にグループ化
+- 重要度: Critical / Warning / Info
+- CWE番号を付与（該当するものがあれば）
+- ファイル名と行番号を明記
+- 問題のコードを引用
+- 攻撃シナリオまたは障害シナリオを具体的に記述
+- 修正後のコードスニペットを提示
+- 末尾に重要度別の検出件数サマリーテーブル</code></pre>
+      </div>
+    </div>
+
+    <div class="mt-8 grid md:grid-cols-3 gap-4">
+      <div class="bg-white rounded-xl border border-warm-200 p-5">
+        <div class="text-navy-600 font-bold text-sm mb-2">Step 1</div>
+        <p class="text-sm text-warm-600">Claude Codeを開き、プロジェクトルートで起動する</p>
+      </div>
+      <div class="bg-white rounded-xl border border-warm-200 p-5">
+        <div class="text-navy-600 font-bold text-sm mb-2">Step 2</div>
+        <p class="text-sm text-warm-600">上記プロンプトをそのまま貼り付けて送信する</p>
+      </div>
+      <div class="bg-white rounded-xl border border-warm-200 p-5">
+        <div class="text-navy-600 font-bold text-sm mb-2">Step 3</div>
+        <p class="text-sm text-warm-600">30秒で12件の検出結果がCWE番号・修正コード付きで返る</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- フッター -->
+<footer class="bg-navy-800 text-white py-10">
+  <div class="max-w-5xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4">
+    <div class="text-navy-300 text-sm">
+      07 コードレビュー -- AI駆動開発デモ
+    </div>
+    <a href="../showcase/index.html" class="bg-white text-navy-700 font-medium px-6 py-3 rounded-lg hover:bg-navy-50 transition-colors text-sm">
+      ← showcaseに戻る
+    </a>
+  </div>
+</footer>
+
+<script>
+// タブ切り替え
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+// プロンプトコピー
+document.getElementById('copyPrompt').addEventListener('click', function() {
+  const text = `# コードレビュー プロンプト
+
+以下のdiffを本番リリース前のコードレビューとして精査してください。
+
+対象ファイル: \`./input/cart-feature.diff\`
+
+## レビュー観点（優先度順）
+
+1. セキュリティ
+   - XSS, SQLi, SSRF, 認証・認可の不備
+   - ユーザー入力のバリデーション漏れ
+   - デバッグ用コードや機密情報の残留
+2. 並行性・データ整合性
+   - 競合状態（TOCTOU, Lost Update）
+   - トランザクション境界の妥当性
+3. パフォーマンス
+   - N+1クエリ、不要な再取得
+   - メモリ使用量（上限なしの全件取得等）
+4. 型安全性
+   - any型の使用箇所と修正方法
+   - null/undefined の未チェックアクセス
+5. 保守性
+   - デッドコード、命名、マジックナンバー
+
+## 出力形式
+
+各指摘を以下のフォーマットで出力:
+
+- カテゴリ別にグループ化
+- 重要度: Critical / Warning / Info
+- CWE番号を付与（該当するものがあれば）
+- ファイル名と行番号を明記
+- 問題のコードを引用
+- 攻撃シナリオまたは障害シナリオを具体的に記述
+- 修正後のコードスニペットを提示
+- 末尾に重要度別の検出件数サマリーテーブル`;
+
+  navigator.clipboard.writeText(text).then(() => {
+    this.textContent = 'コピー完了';
+    this.classList.add('copied');
+    setTimeout(() => {
+      this.textContent = 'コピー';
+      this.classList.remove('copied');
+    }, 2000);
+  });
+});
+
+// スクロールインジケーター
+window.addEventListener('scroll', () => {
+  const scrollTop = document.documentElement.scrollTop;
+  const scrollHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+  const scrollPercent = (scrollTop / scrollHeight) * 100;
+  document.getElementById('scrollBar').style.width = scrollPercent + '%';
+});
+
+// Intersection Observer でフェードイン
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      entry.target.style.animationPlayState = 'running';
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('.fade-in').forEach(el => {
+  el.style.animationPlayState = 'paused';
+  observer.observe(el);
+});
+</script>
+
+</body>
+</html>

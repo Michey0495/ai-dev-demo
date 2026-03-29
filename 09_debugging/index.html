@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>09 Debugging -- エラーログからバグ特定</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/prism.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-typescript.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-bash.min.js"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        navy: {
+          50: '#f0f4f8',
+          100: '#d9e2ec',
+          200: '#b3c5d7',
+          300: '#8da9c4',
+          400: '#6b8db2',
+          500: '#4a729f',
+          600: '#2d5986',
+          700: '#1e3a5f',
+          800: '#162d4a',
+          900: '#0e1f35',
+        },
+        warm: {
+          50: '#f9fafb',
+          100: '#f3f4f6',
+          200: '#e5e7eb',
+          300: '#d1d5db',
+          400: '#9ca3af',
+          500: '#6b7280',
+          600: '#4b5563',
+          700: '#374151',
+          800: '#1f2937',
+        }
+      }
+    }
+  }
+}
+</script>
+<style>
+  html { scroll-behavior: smooth; }
+  .code-block { max-height: 480px; overflow-y: auto; }
+  .code-block-tall { max-height: 640px; overflow-y: auto; }
+  .code-block::-webkit-scrollbar,
+  .code-block-tall::-webkit-scrollbar { width: 6px; }
+  .code-block::-webkit-scrollbar-thumb,
+  .code-block-tall::-webkit-scrollbar-thumb { background: #9ca3af; border-radius: 3px; }
+  .code-block::-webkit-scrollbar-track,
+  .code-block-tall::-webkit-scrollbar-track { background: transparent; }
+  pre[class*="language-"] { margin: 0; border-radius: 0 0 8px 8px; font-size: 13px; line-height: 1.6; }
+  code[class*="language-"] { font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace; }
+  .annotation-before { border-left: 3px solid #dc2626; background: #fef2f2; }
+  .annotation-after { border-left: 3px solid #1e3a5f; background: #f0f4f8; }
+  .tab-active { border-bottom: 2px solid #1e3a5f; color: #1e3a5f; font-weight: 600; }
+  .tab-inactive { border-bottom: 2px solid transparent; color: #6b7280; }
+  .tab-active:hover, .tab-inactive:hover { color: #1e3a5f; }
+  .log-error { color: #dc2626; font-weight: 600; }
+  .log-info { color: #6b7280; }
+  .timeline-dot { width: 12px; height: 12px; border-radius: 50%; border: 2px solid #1e3a5f; background: white; flex-shrink: 0; }
+  .timeline-dot-fail { border-color: #dc2626; background: #fef2f2; }
+  .timeline-dot-stuck { border-color: #d97706; background: #fffbeb; }
+  .timeline-line { width: 2px; background: #d1d5db; min-height: 24px; margin-left: 5px; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+  .fade-in { animation: fadeIn 0.4s ease-out; }
+  .copy-btn { transition: all 0.15s ease; }
+  .copy-btn:active { transform: scale(0.95); }
+</style>
+</head>
+<body class="bg-white text-warm-800 antialiased">
+
+<!-- ヘッダー -->
+<header class="bg-navy-700 text-white">
+  <div class="max-w-7xl mx-auto px-6 py-6 flex items-center justify-between">
+    <div>
+      <div class="flex items-center gap-3 mb-1">
+        <span class="text-navy-200 text-sm font-mono tracking-wider">09_debugging</span>
+        <span class="text-navy-300 text-sm">/</span>
+        <span class="text-navy-200 text-sm">AI Dev Demo</span>
+      </div>
+      <h1 class="text-2xl font-bold tracking-tight">デバッグ -- エラーログから複合バグを特定する</h1>
+      <p class="text-navy-200 mt-1 text-sm">ポイント+クーポン併用時のみ発生する金額不整合。単体テストでは再現しない。</p>
+    </div>
+    <a href="../showcase/index.html" class="flex items-center gap-2 text-navy-200 hover:text-white transition-colors text-sm">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+      showcase に戻る
+    </a>
+  </div>
+</header>
+
+<!-- ナビゲーション -->
+<nav class="sticky top-0 z-30 bg-white border-b border-warm-200 shadow-sm">
+  <div class="max-w-7xl mx-auto px-6 flex gap-6 text-sm">
+    <a href="#overview" class="py-3 border-b-2 border-navy-700 text-navy-700 font-medium">概要</a>
+    <a href="#before-after" class="py-3 border-b-2 border-transparent text-warm-500 hover:text-navy-700 transition-colors">Before / After</a>
+    <a href="#diff" class="py-3 border-b-2 border-transparent text-warm-500 hover:text-navy-700 transition-colors">差分ハイライト</a>
+    <a href="#source" class="py-3 border-b-2 border-transparent text-warm-500 hover:text-navy-700 transition-colors">ソースコード</a>
+    <a href="#prompt" class="py-3 border-b-2 border-transparent text-warm-500 hover:text-navy-700 transition-colors">プロンプト</a>
+    <a href="#steps" class="py-3 border-b-2 border-transparent text-warm-500 hover:text-navy-700 transition-colors">デモ手順</a>
+  </div>
+</nav>
+
+<!-- 概要セクション -->
+<section id="overview" class="max-w-7xl mx-auto px-6 py-12">
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- 状況カード -->
+    <div class="bg-warm-50 border border-warm-200 rounded-lg p-6">
+      <h3 class="text-sm font-semibold text-navy-700 uppercase tracking-wider mb-4">状況</h3>
+      <p class="text-sm text-warm-700 leading-relaxed">
+        ECサイトの注文処理。2025年10月1日の税率変更後、金額不整合エラーが断続的に発生。
+        差額は20円から200円。特定の注文だけで起きるが、法則が見えない。
+      </p>
+    </div>
+    <!-- 数字カード -->
+    <div class="bg-warm-50 border border-warm-200 rounded-lg p-6">
+      <h3 class="text-sm font-semibold text-navy-700 uppercase tracking-wider mb-4">ログ分析</h3>
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <div class="text-3xl font-bold text-navy-700">25</div>
+          <div class="text-xs text-warm-500 mt-1">件の注文ログ</div>
+        </div>
+        <div>
+          <div class="text-3xl font-bold text-red-600">6</div>
+          <div class="text-xs text-warm-500 mt-1">件のエラー</div>
+        </div>
+        <div>
+          <div class="text-3xl font-bold text-navy-700">100%</div>
+          <div class="text-xs text-warm-500 mt-1">併用注文のエラー率</div>
+        </div>
+        <div>
+          <div class="text-3xl font-bold text-navy-700">P*r</div>
+          <div class="text-xs text-warm-500 mt-1">差額の法則</div>
+        </div>
+      </div>
+    </div>
+    <!-- 時間比較カード -->
+    <div class="bg-warm-50 border border-warm-200 rounded-lg p-6">
+      <h3 class="text-sm font-semibold text-navy-700 uppercase tracking-wider mb-4">所要時間比較</h3>
+      <div class="space-y-4">
+        <div>
+          <div class="flex justify-between text-sm mb-1">
+            <span class="text-warm-600">人手での調査</span>
+            <span class="font-semibold text-warm-700">2時間</span>
+          </div>
+          <div class="h-2 bg-warm-200 rounded-full overflow-hidden">
+            <div class="h-full bg-warm-500 rounded-full" style="width:100%"></div>
+          </div>
+          <div class="text-xs text-warm-500 mt-1">誤仮説2回を経て行き詰まり。修正には至らず。</div>
+        </div>
+        <div>
+          <div class="flex justify-between text-sm mb-1">
+            <span class="text-warm-600">AI + 人間</span>
+            <span class="font-semibold text-navy-700">5分</span>
+          </div>
+          <div class="h-2 bg-warm-200 rounded-full overflow-hidden">
+            <div class="h-full bg-navy-600 rounded-full" style="width:4.2%"></div>
+          </div>
+          <div class="text-xs text-warm-500 mt-1">根本原因の特定、数式証明、修正コードまで完了。</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- エラーログプレビュー -->
+  <div class="mt-10">
+    <h3 class="text-sm font-semibold text-navy-700 uppercase tracking-wider mb-3">エラーログ（抜粋 -- 全25件中6件がERROR）</h3>
+    <div class="bg-warm-800 rounded-lg p-5 code-block font-mono text-xs leading-relaxed overflow-x-auto">
+      <div class="log-info">[2025-09-28 09:12:03] INFO  注文完了: ORD-20250928-001, 商品合計=5,400円, ポイント=0, クーポン=なし, 最終=5,832円</div>
+      <div class="log-info">[2025-09-28 09:15:22] INFO  注文完了: ORD-20250928-002, 商品合計=3,200円, ポイント=500, クーポン=なし, 最終=2,956円</div>
+      <div class="log-info">[2025-09-28 09:23:44] INFO  注文完了: ORD-20250928-003, 商品合計=8,900円, ポイント=0, クーポン=20%OFF, 最終=7,690円</div>
+      <div class="text-warm-500 my-2">  ... 9/28の残り4件 (全件INFO) ...</div>
+      <div class="text-warm-400 my-2 border-t border-warm-600 pt-2">--- 2025-10-01 税率変更 (8% → 10%) ---</div>
+      <div class="log-info">[2025-10-01 09:01:12] INFO  注文完了: ORD-20251001-001, 商品合計=5,400円, ポイント=0, クーポン=なし, 最終=5,940円</div>
+      <div class="log-info">[2025-10-01 09:08:45] INFO  注文完了: ORD-20251001-002, 商品合計=3,200円, ポイント=500, クーポン=なし, 最終=3,020円</div>
+      <div class="log-error">[2025-10-01 09:22:07] ERROR 金額不整合: ORD-20251001-004, 期待値=2,340円 / 実際=2,400円 (差額: 60円)</div>
+      <div class="log-error ml-8 text-red-400">注文詳細: 商品合計=3,000円, ポイント=300, クーポン=CP-AUTUMN20(20%OFF)</div>
+      <div class="log-info">[2025-10-01 09:35:18] INFO  注文完了: ORD-20251001-005, 商品合計=4,500円, ポイント=800, クーポン=なし, 最終=4,150円</div>
+      <div class="log-error">[2025-10-01 10:05:44] ERROR 金額不整合: ORD-20251001-007, 期待値=4,945円 / 実際=4,995円 (差額: 50円)</div>
+      <div class="log-error ml-8 text-red-400">注文詳細: 商品合計=5,500円, ポイント=500, クーポン=CP-WELCOME10(10%OFF)</div>
+      <div class="log-error">[2025-10-01 11:03:28] ERROR 金額不整合: ORD-20251001-010, 期待値=6,040円 / 実際=6,240円 (差額: 200円)</div>
+      <div class="log-error ml-8 text-red-400">注文詳細: 商品合計=8,000円, ポイント=1000, クーポン=CP-AUTUMN20(20%OFF)</div>
+      <div class="text-warm-500 my-2">  ... 他にもERROR 3件 (差額: 20円, 120円, 80円) ...</div>
+    </div>
+  </div>
+</section>
+
+<!-- Before / After セクション -->
+<section id="before-after" class="bg-warm-50 border-y border-warm-200">
+  <div class="max-w-7xl mx-auto px-6 py-12">
+    <h2 class="text-lg font-bold text-navy-700 mb-2">Before / After 比較</h2>
+    <p class="text-sm text-warm-500 mb-8">左: 開発者が2時間かけた手動デバッグ。右: AIによる診断結果。</p>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+      <!-- Before パネル -->
+      <div class="bg-white rounded-lg border border-warm-200 overflow-hidden shadow-sm">
+        <div class="bg-warm-100 border-b border-warm-200 px-5 py-3 flex items-center justify-between">
+          <div>
+            <span class="text-xs font-mono text-warm-500">before/</span>
+            <h3 class="text-sm font-semibold text-warm-700">debug-log.md -- 手動デバッグ（2時間）</h3>
+          </div>
+          <span class="text-xs px-2 py-1 bg-warm-200 text-warm-600 rounded font-medium">行き詰まり</span>
+        </div>
+
+        <!-- タイムライン -->
+        <div class="p-5 code-block-tall">
+          <div class="space-y-0">
+            <!-- 仮説1 -->
+            <div class="flex gap-3">
+              <div class="flex flex-col items-center">
+                <div class="timeline-dot-fail timeline-dot"></div>
+                <div class="timeline-line"></div>
+              </div>
+              <div class="pb-5">
+                <div class="text-xs text-warm-400 font-mono">10:30 - 11:15（45分）</div>
+                <div class="text-sm font-semibold text-warm-700 mt-1">仮説1: Math.floor の丸め誤差</div>
+                <div class="annotation-before rounded px-3 py-2 mt-2 text-xs text-warm-600 leading-relaxed">
+                  <span class="text-red-600 font-semibold">棄却。</span>
+                  calculateCouponDiscount を直接呼び出してテスト。3300*0.2=660、6050*0.1=605、2750*0.1=275。全件手計算と一致。関数単体には問題なし。
+                  <br><br>
+                  calculatePointDiscount も検証。3300から300引く、100から500引く（上限キャップ100）。正常動作。
+                </div>
+              </div>
+            </div>
+
+            <!-- 仮説2 -->
+            <div class="flex gap-3">
+              <div class="flex flex-col items-center">
+                <div class="timeline-dot-fail timeline-dot"></div>
+                <div class="timeline-line"></div>
+              </div>
+              <div class="pb-5">
+                <div class="text-xs text-warm-400 font-mono">11:20 - 11:48（28分）</div>
+                <div class="text-sm font-semibold text-warm-700 mt-1">仮説2: 税率切替の境界値 / タイムゾーン</div>
+                <div class="annotation-before rounded px-3 py-2 mt-2 text-xs text-warm-600 leading-relaxed">
+                  <span class="text-red-600 font-semibold">棄却。</span>
+                  getTaxRate に 10/1 09:22 を渡すと 0.10。9/30 23:59 なら 0.08。境界正常。
+                  <br><br>
+                  TZ=Asia/Tokyo 確認済。new Date('2025-10-01') は UTC 0:00 = JST 9:00。注文は JST 9:22 なので新税率が正しく適用される。calculateTotal と verifyAmount 両方で 0.10 を確認。
+                </div>
+              </div>
+            </div>
+
+            <!-- 昼休憩 -->
+            <div class="flex gap-3">
+              <div class="flex flex-col items-center">
+                <div class="timeline-dot" style="border-color:#9ca3af;"></div>
+                <div class="timeline-line"></div>
+              </div>
+              <div class="pb-5">
+                <div class="text-xs text-warm-400 font-mono">12:00 - 12:35</div>
+                <div class="text-sm text-warm-500 mt-1">昼休憩。頭をリセット。</div>
+              </div>
+            </div>
+
+            <!-- パターン発見 -->
+            <div class="flex gap-3">
+              <div class="flex flex-col items-center">
+                <div class="timeline-dot"></div>
+                <div class="timeline-line"></div>
+              </div>
+              <div class="pb-5">
+                <div class="text-xs text-warm-400 font-mono">12:35 - 12:52（17分）</div>
+                <div class="text-sm font-semibold text-warm-700 mt-1">Excel分析でパターン発見</div>
+                <div class="px-3 py-2 mt-2 text-xs text-warm-600 bg-warm-50 border border-warm-200 rounded leading-relaxed">
+                  全注文をExcelに並べ、ポイント/クーポンの有無で分類。
+                  <br>エラーは全件「ポイントあり かつ クーポンあり」の注文。
+                  <br>9月は併用注文が0件だったため潜伏していた。
+                </div>
+              </div>
+            </div>
+
+            <!-- 原因箇所の特定 -->
+            <div class="flex gap-3">
+              <div class="flex flex-col items-center">
+                <div class="timeline-dot"></div>
+                <div class="timeline-line"></div>
+              </div>
+              <div class="pb-5">
+                <div class="text-xs text-warm-400 font-mono">12:45 - 13:00（15分）</div>
+                <div class="text-sm font-semibold text-warm-700 mt-1">引数の違いを発見</div>
+                <div class="px-3 py-2 mt-2 text-xs text-warm-600 bg-warm-50 border border-warm-200 rounded leading-relaxed font-mono">
+                  calculateTotal → calculateCouponDiscount(<span class="text-red-600 font-bold">afterPoints</span>, coupon)<br>
+                  verifyAmount&nbsp; → calculateCouponDiscount(<span class="text-navy-700 font-bold">totalWithTax</span>, coupon)<br><br>
+                  <span class="text-warm-500">同じ関数を呼んでいるのに、渡す引数が違う。</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 行き詰まり -->
+            <div class="flex gap-3">
+              <div class="flex flex-col items-center">
+                <div class="timeline-dot-stuck timeline-dot"></div>
+              </div>
+              <div>
+                <div class="text-xs text-warm-400 font-mono">13:00 - 13:30</div>
+                <div class="text-sm font-semibold text-amber-700 mt-1">行き詰まり -- 仕様の裏付けが取れない</div>
+                <div class="annotation-before rounded px-3 py-2 mt-2 text-xs text-warm-600 leading-relaxed" style="border-left-color:#d97706; background:#fffbeb;">
+                  <span class="text-amber-700 font-semibold">修正に踏み切れず。</span>
+                  どちらの引数が仕様上正しいのか判断できない。discount-service.ts のコメントは「税込金額全体」と言っているが、calculateTotal のコメントも「税込金額に対して」と書いてある。コメントとコードが食い違っている。
+                  <br><br>
+                  applyAllDiscounts が使われていない理由、DISCOUNT_APPLICATION_ORDER が参照されていない理由も不明。プロダクトオーナー不在で仕様確認もできず、2時間で打ち切り。
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- After パネル -->
+      <div class="bg-white rounded-lg border border-warm-200 overflow-hidden shadow-sm">
+        <div class="bg-navy-50 border-b border-navy-100 px-5 py-3 flex items-center justify-between">
+          <div>
+            <span class="text-xs font-mono text-navy-400">expected-output/</span>
+            <h3 class="text-sm font-semibold text-navy-700">diagnosis.md -- AI診断（5分）</h3>
+          </div>
+          <span class="text-xs px-2 py-1 bg-navy-100 text-navy-700 rounded font-medium">原因特定+修正済</span>
+        </div>
+
+        <div class="p-5 code-block-tall">
+          <!-- 分類表 -->
+          <div class="mb-5">
+            <div class="text-xs font-semibold text-navy-700 uppercase tracking-wider mb-2">1. ログ全件分類</div>
+            <table class="w-full text-xs border-collapse">
+              <thead>
+                <tr class="border-b border-warm-200">
+                  <th class="text-left py-2 pr-3 text-warm-500 font-medium">条件</th>
+                  <th class="text-right py-2 px-3 text-warm-500 font-medium">件数</th>
+                  <th class="text-right py-2 pl-3 text-warm-500 font-medium">エラー</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="border-b border-warm-100"><td class="py-2 pr-3 text-warm-600">割引なし</td><td class="text-right px-3 text-warm-600">6件</td><td class="text-right pl-3 text-warm-500">0</td></tr>
+                <tr class="border-b border-warm-100"><td class="py-2 pr-3 text-warm-600">ポイントのみ</td><td class="text-right px-3 text-warm-600">7件</td><td class="text-right pl-3 text-warm-500">0</td></tr>
+                <tr class="border-b border-warm-100"><td class="py-2 pr-3 text-warm-600">クーポンのみ</td><td class="text-right px-3 text-warm-600">5件</td><td class="text-right pl-3 text-warm-500">0</td></tr>
+                <tr class="bg-red-50"><td class="py-2 pr-3 font-semibold text-red-700">ポイント+クーポン併用</td><td class="text-right px-3 font-semibold text-red-700">6件</td><td class="text-right pl-3 font-bold text-red-600">6</td></tr>
+              </tbody>
+            </table>
+            <div class="annotation-after rounded px-3 py-2 mt-3 text-xs text-navy-700 leading-relaxed">
+              併用注文のエラー率100%。ポイント単独・クーポン単独では1件もエラーなし。9月以前に併用注文は存在しなかった。バグは税率変更が原因ではなく、以前から潜伏していた。
+            </div>
+          </div>
+
+          <!-- 差額の法則性 -->
+          <div class="mb-5">
+            <div class="text-xs font-semibold text-navy-700 uppercase tracking-wider mb-2">2. 差額の法則性</div>
+            <table class="w-full text-xs border-collapse font-mono">
+              <thead>
+                <tr class="border-b border-warm-200">
+                  <th class="text-left py-1.5 text-warm-500 font-medium">注文ID</th>
+                  <th class="text-right py-1.5 text-warm-500 font-medium">ポイント</th>
+                  <th class="text-right py-1.5 text-warm-500 font-medium">クーポン率</th>
+                  <th class="text-right py-1.5 text-warm-500 font-medium">P*r</th>
+                  <th class="text-right py-1.5 text-warm-500 font-medium">差額</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="border-b border-warm-100"><td class="py-1.5 text-warm-600">1001-004</td><td class="text-right text-warm-600">300</td><td class="text-right text-warm-600">0.20</td><td class="text-right text-navy-700 font-semibold">60</td><td class="text-right text-red-600 font-semibold">60</td></tr>
+                <tr class="border-b border-warm-100"><td class="py-1.5 text-warm-600">1001-007</td><td class="text-right text-warm-600">500</td><td class="text-right text-warm-600">0.10</td><td class="text-right text-navy-700 font-semibold">50</td><td class="text-right text-red-600 font-semibold">50</td></tr>
+                <tr class="border-b border-warm-100"><td class="py-1.5 text-warm-600">1001-010</td><td class="text-right text-warm-600">1000</td><td class="text-right text-warm-600">0.20</td><td class="text-right text-navy-700 font-semibold">200</td><td class="text-right text-red-600 font-semibold">200</td></tr>
+                <tr class="border-b border-warm-100"><td class="py-1.5 text-warm-600">1001-013</td><td class="text-right text-warm-600">200</td><td class="text-right text-warm-600">0.10</td><td class="text-right text-navy-700 font-semibold">20</td><td class="text-right text-red-600 font-semibold">20</td></tr>
+                <tr class="border-b border-warm-100"><td class="py-1.5 text-warm-600">1001-016</td><td class="text-right text-warm-600">600</td><td class="text-right text-warm-600">0.20</td><td class="text-right text-navy-700 font-semibold">120</td><td class="text-right text-red-600 font-semibold">120</td></tr>
+                <tr><td class="py-1.5 text-warm-600">1002-001</td><td class="text-right text-warm-600">400</td><td class="text-right text-warm-600">0.20</td><td class="text-right text-navy-700 font-semibold">80</td><td class="text-right text-red-600 font-semibold">80</td></tr>
+              </tbody>
+            </table>
+            <div class="annotation-after rounded px-3 py-2 mt-3 text-xs text-navy-700">
+              全件で 差額 = ポイント利用額 x クーポン割引率 が成立。偶然ではない。
+            </div>
+          </div>
+
+          <!-- 数式証明 -->
+          <div class="mb-5">
+            <div class="text-xs font-semibold text-navy-700 uppercase tracking-wider mb-2">3. 数式による証明</div>
+            <div class="bg-navy-50 rounded-lg p-4 font-mono text-xs leading-loose text-navy-800">
+              <div class="text-warm-500 mb-1">// 変数定義</div>
+              <div>T = 税込金額, P = ポイント利用額, r = クーポン割引率</div>
+              <div class="mt-3 text-warm-500">// calculateTotal（バグあり）</div>
+              <div>最終金額 = (T - P)(1 - r)</div>
+              <div class="mt-2 text-warm-500">// verifyAmount（仕様準拠）</div>
+              <div>最終金額 = T(1 - r) - P</div>
+              <div class="mt-3 border-t border-navy-200 pt-3 text-warm-500">// 差額</div>
+              <div>(T-P)(1-r) - (T(1-r) - P)</div>
+              <div>= T - P - Tr + <span class="text-red-600 font-bold">Pr</span> - T + Tr + P</div>
+              <div class="text-navy-700 font-bold mt-1">= P * r</div>
+            </div>
+          </div>
+
+          <!-- 根本原因 -->
+          <div class="mb-5">
+            <div class="text-xs font-semibold text-navy-700 uppercase tracking-wider mb-2">4. 根本原因</div>
+            <div class="annotation-after rounded px-3 py-3 text-xs text-navy-700 leading-relaxed">
+              order-service.ts 50行目。calculateCouponDiscount に渡す引数が <code class="bg-navy-100 px-1 rounded text-red-700">afterPoints</code>（ポイント差引後）になっている。仕様では <code class="bg-navy-100 px-1 rounded text-navy-700">totalWithTax</code>（税込金額全体）が正しい。
+              <br><br>
+              同じ関数を呼んでいるため、関数自体にバグはない。引数が1つ違うだけ。applyAllDiscounts という仕様準拠の一括関数が存在するが、calculateTotal はこれを使わず個別に組み合わせている。
+            </div>
+          </div>
+
+          <!-- 修正コード -->
+          <div>
+            <div class="text-xs font-semibold text-navy-700 uppercase tracking-wider mb-2">5. 修正コード（推奨案）</div>
+            <div class="rounded-lg overflow-hidden border border-warm-200">
+              <div class="bg-warm-700 px-3 py-1.5 text-xs text-warm-300 font-mono">order-service.ts -- calculateTotal</div>
+              <pre class="!m-0 !rounded-none"><code class="language-typescript">function calculateTotal(subtotal: number, order: Order): OrderResult {
+  const taxRate = getTaxRate(order.orderDate)
+  const taxAmount = calculateTax(subtotal, taxRate)
+  const totalWithTax = subtotal + taxAmount
+
+  const { couponDiscount, pointDiscount, finalAmount } = applyAllDiscounts(
+    totalWithTax, order.pointsUsed, order.coupon
+  )
+
+  return {
+    orderId: order.orderId,
+    subtotal, taxAmount, totalWithTax,
+    pointDiscount, couponDiscount, finalAmount,
+  }
+}</code></pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 差分ハイライト -->
+<section id="diff" class="max-w-7xl mx-auto px-6 py-12">
+  <h2 class="text-lg font-bold text-navy-700 mb-2">差分ハイライト -- 人手 vs AI の決定的な違い</h2>
+  <p class="text-sm text-warm-500 mb-8">同じコードベース、同じログを読んで、何が違ったのか。</p>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+
+    <div class="bg-white border border-warm-200 rounded-lg p-5 hover:shadow-md transition-shadow">
+      <div class="flex items-center gap-2 mb-3">
+        <div class="w-8 h-8 bg-navy-50 rounded-lg flex items-center justify-center text-navy-700 text-sm font-bold">1</div>
+        <h3 class="text-sm font-semibold text-warm-700">分析の起点が違う</h3>
+      </div>
+      <div class="text-xs text-warm-500 leading-relaxed space-y-2">
+        <div class="annotation-before rounded px-3 py-2">
+          <span class="text-red-700 font-medium">人手:</span> 差額の数値を見て「丸め誤差では?」という仮説から入った。仮説駆動のため、外れると時間を失う。
+        </div>
+        <div class="annotation-after rounded px-3 py-2">
+          <span class="text-navy-700 font-medium">AI:</span> ログ25件を一括分類し、エラー注文に共通する条件を統計的に抽出した。データ駆動。
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-white border border-warm-200 rounded-lg p-5 hover:shadow-md transition-shadow">
+      <div class="flex items-center gap-2 mb-3">
+        <div class="w-8 h-8 bg-navy-50 rounded-lg flex items-center justify-center text-navy-700 text-sm font-bold">2</div>
+        <h3 class="text-sm font-semibold text-warm-700">差額の法則を導出できたか</h3>
+      </div>
+      <div class="text-xs text-warm-500 leading-relaxed space-y-2">
+        <div class="annotation-before rounded px-3 py-2">
+          <span class="text-red-700 font-medium">人手:</span> 60, 50, 200, 20, 120 という差額をバラバラの数字として認識。「桁がバラバラ」止まり。
+        </div>
+        <div class="annotation-after rounded px-3 py-2">
+          <span class="text-navy-700 font-medium">AI:</span> 6件の差額を注文パラメータと照合し、差額=P*r の数式を導出。全件で完全一致を確認。
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-white border border-warm-200 rounded-lg p-5 hover:shadow-md transition-shadow">
+      <div class="flex items-center gap-2 mb-3">
+        <div class="w-8 h-8 bg-navy-50 rounded-lg flex items-center justify-center text-navy-700 text-sm font-bold">3</div>
+        <h3 class="text-sm font-semibold text-warm-700">仕様の判断材料</h3>
+      </div>
+      <div class="text-xs text-warm-500 leading-relaxed space-y-2">
+        <div class="annotation-before rounded px-3 py-2">
+          <span class="text-red-700 font-medium">人手:</span> コメントとコードの食い違いに気づいたが、「状況証拠」では本番コードを書き換えられないと判断。PO不在で停止。
+        </div>
+        <div class="annotation-after rounded px-3 py-2">
+          <span class="text-navy-700 font-medium">AI:</span> discount-service.ts のコメント、applyAllDiscounts の実装、config.ts の定数。3箇所の証拠を統合して仕様意図を高確度で推定。
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-white border border-warm-200 rounded-lg p-5 hover:shadow-md transition-shadow">
+      <div class="flex items-center gap-2 mb-3">
+        <div class="w-8 h-8 bg-navy-50 rounded-lg flex items-center justify-center text-navy-700 text-sm font-bold">4</div>
+        <h3 class="text-sm font-semibold text-warm-700">副次的な問題の発見</h3>
+      </div>
+      <div class="text-xs text-warm-500 leading-relaxed space-y-2">
+        <div class="annotation-before rounded px-3 py-2">
+          <span class="text-red-700 font-medium">人手:</span> pricing-engine.ts の判定基準ズレに気づいたが「今回は関係ない」で保留。
+        </div>
+        <div class="annotation-after rounded px-3 py-2">
+          <span class="text-navy-700 font-medium">AI:</span> 同じ問題を発見した上で、境界付近の注文で将来的に発生しうる事象まで具体的に記述。DISCOUNT_APPLICATION_ORDER の未参照も指摘。
+        </div>
+      </div>
+    </div>
+
+    <div class="bg-white border border-warm-200 rounded-lg p-5 hover:shadow-md transition-shadow">
+      <div class="flex items-center gap-2 mb-3">
+        <div class="w-8 h-8 bg-navy-50 rounded-lg flex items-center justify-center text-navy-700 text-sm font-bold">5</div>
+        <h3 class="text-sm font-semibold text-warm-700">アウトプットの完成度</h3>
+      </div>
+      <div class="text-xs text-warm-500 leading-relaxed space-y-2">
+        <div class="annotation-before rounded px-3 py-2">
+          <span class="text-red-700 font-medium">人手:</span> 「把握できたこと」「判断がつかないこと」「次にやること」のメモ。修正コードなし。
+        </div>
+        <div class="annotation-after rounded px-3 py-2">
+          <span class="text-navy-700 font-medium">AI:</span> 分類表、数式証明、検算、修正コード2案、再発防止策。そのまま実装に移せる水準。
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ソースコード セクション -->
+<section id="source" class="bg-warm-50 border-y border-warm-200">
+  <div class="max-w-7xl mx-auto px-6 py-12">
+    <h2 class="text-lg font-bold text-navy-700 mb-2">ソースコード -- バグの所在</h2>
+    <p class="text-sm text-warm-500 mb-6">8ファイル中、バグは order-service.ts の1行。同じ関数を呼んでいるのに引数だけが違う。</p>
+
+    <!-- タブ -->
+    <div class="flex gap-1 border-b border-warm-200 mb-0" id="source-tabs">
+      <button onclick="showSourceTab('order-service')" class="px-4 py-2 text-xs font-medium tab-active rounded-t" data-tab="order-service">order-service.ts</button>
+      <button onclick="showSourceTab('discount-service')" class="px-4 py-2 text-xs font-medium tab-inactive rounded-t" data-tab="discount-service">discount-service.ts</button>
+      <button onclick="showSourceTab('config')" class="px-4 py-2 text-xs font-medium tab-inactive rounded-t" data-tab="config">config.ts</button>
+    </div>
+
+    <!-- order-service.ts -->
+    <div id="tab-order-service" class="bg-white border border-warm-200 border-t-0 rounded-b-lg overflow-hidden">
+      <div class="bg-warm-100 px-4 py-2 border-b border-warm-200 flex items-center justify-between">
+        <span class="text-xs text-warm-500 font-mono">input/src/order-service.ts</span>
+        <span class="text-xs text-red-600 font-medium">50行目に注目</span>
+      </div>
+      <div class="code-block">
+        <pre><code class="language-typescript">// 注文処理サービス
+// 注文の受付から金額計算・保存・通知までを統括する
+
+import { Order, OrderResult } from './types'
+import { getTaxRate, calculateTax } from './tax-calculator'
+import {
+  calculatePointDiscount,
+  calculateCouponDiscount,
+  applyAllDiscounts,
+} from './discount-service'
+import { saveOrder } from './order-repository'
+import { sendOrderConfirmation } from './notification-service'
+import { AMOUNT_TOLERANCE } from './config'
+
+// 注文を処理する
+export async function processOrder(order: Order): Promise&lt;OrderResult&gt; {
+  // 商品合計（税抜）を算出
+  const subtotal = order.items.reduce(
+    (sum, item) =&gt; sum + item.unitPrice * item.quantity, 0
+  )
+
+  const result = calculateTotal(subtotal, order)
+
+  // 金額の整合性チェック（独立した検証ロジックと突合）
+  const expectedFinal = verifyAmount(subtotal, order)
+  const diff = Math.abs(result.finalAmount - expectedFinal)
+  if (diff &gt; AMOUNT_TOLERANCE) {
+    throw new Error(
+      `金額不整合エラー: 期待値 ${expectedFinal.toLocaleString()}円 / 実際 ${result.finalAmount.toLocaleString()}円`
+    )
+  }
+
+  await saveOrder(result)
+  await sendOrderConfirmation(order.userId, result)
+
+  return result
+}
+
+// 合計金額を計算する
+function calculateTotal(subtotal: number, order: Order): OrderResult {
+  const taxRate = getTaxRate(order.orderDate)
+  const taxAmount = calculateTax(subtotal, taxRate)
+  const totalWithTax = subtotal + taxAmount
+
+  // ポイント値引き（税込金額から差し引く）
+  const pointDiscount = calculatePointDiscount(totalWithTax, order.pointsUsed)
+  const afterPoints = totalWithTax - pointDiscount
+
+  // クーポン値引き（税込金額に対して割引率を適用）     ← コメントは「税込金額」
+  const couponDiscount = calculateCouponDiscount(afterPoints, order.coupon)
+  //                                             ^^^^^^^^^^
+  //                        実際に渡しているのは afterPoints（ポイント差引後）
+  //                        仕様では totalWithTax（税込金額全体）が正しい
+
+  const finalAmount = afterPoints - couponDiscount
+
+  return {
+    orderId: order.orderId,
+    subtotal, taxAmount, totalWithTax,
+    pointDiscount, couponDiscount, finalAmount,
+  }
+}
+
+// 検証用: 仕様どおりの計算で金額を算出する
+// discount-service.ts の applyAllDiscounts に委譲
+function verifyAmount(subtotal: number, order: Order): number {
+  const taxRate = getTaxRate(order.orderDate)
+  const taxAmount = calculateTax(subtotal, taxRate)
+  const totalWithTax = subtotal + taxAmount
+
+  const { finalAmount } = applyAllDiscounts(
+    totalWithTax, order.pointsUsed, order.coupon
+  )
+  return finalAmount
+}</code></pre>
+      </div>
+    </div>
+
+    <!-- discount-service.ts -->
+    <div id="tab-discount-service" class="bg-white border border-warm-200 border-t-0 rounded-b-lg overflow-hidden hidden">
+      <div class="bg-warm-100 px-4 py-2 border-b border-warm-200 flex items-center justify-between">
+        <span class="text-xs text-warm-500 font-mono">input/src/discount-service.ts</span>
+        <span class="text-xs text-navy-600 font-medium">applyAllDiscounts が正しい適用順序を持つ</span>
+      </div>
+      <div class="code-block">
+        <pre><code class="language-typescript">// 割引処理モジュール
+// ポイント利用とクーポン適用を扱う
+//
+// 仕様:
+//   ポイント: 税込金額から差し引く（1ポイント = 1円）
+//   クーポン: 税込金額に対して割引率を適用
+//   併用時の適用順: クーポン → ポイント
+//     （クーポンは税込金額全体に対する割引率、ポイントは固定額控除）
+
+import { Coupon, DiscountBreakdown } from './types'
+import { POINT_VALUE, MAX_COUPON_DISCOUNT_RATE } from './config'
+
+// ポイント値引き額を計算する
+export function calculatePointDiscount(
+  amount: number, pointsUsed: number
+): number {
+  if (pointsUsed &lt;= 0) return 0
+  const pointValue = pointsUsed * POINT_VALUE
+  return Math.min(pointValue, amount)
+}
+
+// クーポン値引き額を計算する
+// クーポンは税込金額に対して割引率を適用する
+export function calculateCouponDiscount(
+  amountWithTax: number, coupon: Coupon | null
+): number {
+  if (!coupon) return 0
+  if (amountWithTax &lt; coupon.minOrderAmount) return 0
+  const effectiveRate = Math.min(coupon.discountRate, MAX_COUPON_DISCOUNT_RATE)
+  return Math.floor(amountWithTax * effectiveRate)
+}
+
+// 全割引を一括適用する（仕様準拠の適用順序）
+// クーポン（税込金額全体ベース） → ポイント（固定額控除）の順
+export function applyAllDiscounts(
+  totalWithTax: number,
+  pointsUsed: number,
+  coupon: Coupon | null
+): DiscountBreakdown {
+  const couponDiscount = calculateCouponDiscount(totalWithTax, coupon)
+  //                                             ^^^^^^^^^^^^
+  //                     こちらは totalWithTax を渡している（正しい）
+  const afterCoupon = totalWithTax - couponDiscount
+  const pointDiscount = calculatePointDiscount(afterCoupon, pointsUsed)
+  const finalAmount = afterCoupon - pointDiscount
+  return { couponDiscount, pointDiscount, finalAmount }
+}
+
+// ポイントの残高チェック
+export function validatePointBalance(
+  availablePoints: number, requestedPoints: number
+): boolean {
+  return requestedPoints &gt;= 0 &amp;&amp; requestedPoints &lt;= availablePoints
+}</code></pre>
+      </div>
+    </div>
+
+    <!-- config.ts -->
+    <div id="tab-config" class="bg-white border border-warm-200 border-t-0 rounded-b-lg overflow-hidden hidden">
+      <div class="bg-warm-100 px-4 py-2 border-b border-warm-200 flex items-center justify-between">
+        <span class="text-xs text-warm-500 font-mono">input/src/config.ts</span>
+        <span class="text-xs text-amber-600 font-medium">DISCOUNT_APPLICATION_ORDER が未参照</span>
+      </div>
+      <div class="code-block">
+        <pre><code class="language-typescript">// 設定定数
+
+// 税率変更履歴
+export const TAX_RATE_HISTORY = [
+  { rate: 0.08, effectiveFrom: new Date('2019-10-01') },
+  { rate: 0.10, effectiveFrom: new Date('2025-10-01') },
+] as const
+
+// ポイント関連
+export const POINT_VALUE = 1  // 1ポイント = 1円
+
+// クーポン設定
+export const MAX_COUPON_DISCOUNT_RATE = 0.5
+
+// 割引適用順序（仕様: クーポン率割引を先に適用し、ポイント固定額控除を後に適用する）
+// ↑ この定数はどこからも import されていない
+export const DISCOUNT_APPLICATION_ORDER = ['coupon', 'point'] as const
+export type DiscountType = typeof DISCOUNT_APPLICATION_ORDER[number]
+
+// 金額検証の許容誤差（円）
+export const AMOUNT_TOLERANCE = 0
+
+// データベース接続
+export const DB_HOST = 'localhost'
+export const DB_PORT = 5432
+export const DB_NAME = 'order_db'</code></pre>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- プロンプトセクション -->
+<section id="prompt" class="max-w-7xl mx-auto px-6 py-12">
+  <h2 class="text-lg font-bold text-navy-700 mb-2">プロンプト -- Claude Code に投入する指示</h2>
+  <p class="text-sm text-warm-500 mb-6">with-ai/prompt.md の内容。このプロンプトを Claude Code に貼り付けると、上記の診断結果が得られる。</p>
+
+  <div class="bg-white border border-warm-200 rounded-lg overflow-hidden shadow-sm">
+    <div class="bg-navy-700 px-5 py-3 flex items-center justify-between">
+      <span class="text-sm text-navy-200 font-mono">with-ai/prompt.md</span>
+      <button onclick="copyPrompt()" class="copy-btn flex items-center gap-1.5 text-xs text-navy-200 hover:text-white bg-navy-600 hover:bg-navy-500 px-3 py-1.5 rounded transition-colors">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+        <span id="copy-label">コピー</span>
+      </button>
+    </div>
+    <div class="code-block-tall" id="prompt-content">
+      <pre class="!rounded-t-none"><code class="language-bash">本番環境で金額不整合エラーが断続的に発生している。エラーログとソースコードから根本原因を特定し、修正コードを提示してほしい。
+
+## 対象ファイル
+
+エラーログ: input/error-log.txt（25件、正常注文と異常注文が混在）
+ソースコード: input/src/ 配下の8ファイル（TypeScript、注文処理システム）
+
+## 分析の進め方
+
+Step 1 -- パターン抽出
+エラーログ25件を全件読み、エラー注文だけに共通する条件を特定する。
+「金額帯」「ユーザー」「商品」「日付」「ポイント利用」「クーポン適用」の
+各軸で分類し、エラー有無との相関を洗い出す。
+
+Step 2 -- 差額の法則性
+エラー注文の差額（期待値と実際の差）に数値的な規則性がないか調べる。
+差額を注文の各パラメータ（ポイント額、クーポン率、税込金額など）と照合し、
+差額を説明できる数式を導出する。
+
+Step 3 -- コード追跡
+order-service.ts のprocessOrder内で「期待値」と「実際」がどう計算されて
+いるかを追跡する。2つの計算パスの違いを特定し、Step 2で導出した差額の
+法則性がコードの差異から数学的に導けることを証明する。
+
+Step 4 -- 波及分析
+直接のバグ箇所だけでなく、関連する問題がないか確認する。
+discount-service.ts、config.ts、pricing-engine.ts に仕様との乖離や
+未使用の定数がないかも調べる。
+
+## 出力形式
+
+1. ログ全件の分類表（条件別の件数とエラー有無）
+2. 差額の法則性（数式で表現）
+3. 根本原因（コードの具体的な行番号と、何が間違っているか）
+4. 数式による証明（変数を使った一般化）
+5. 検算（エラー注文1件を選び、正しい計算と誤った計算の双方を手順ごとに実行）
+6. 単体テストで検出できなかった理由
+7. 副次的な問題（あれば）
+8. 修正コード
+9. 再発防止の推奨事項</code></pre>
+    </div>
+  </div>
+</section>
+
+<!-- デモ手順 -->
+<section id="steps" class="bg-warm-50 border-y border-warm-200">
+  <div class="max-w-7xl mx-auto px-6 py-12">
+    <h2 class="text-lg font-bold text-navy-700 mb-2">デモ手順 -- 約20分</h2>
+    <p class="text-sm text-warm-500 mb-8">商談時、この順序で進めると効果的。</p>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+      <div class="bg-white border border-warm-200 rounded-lg p-5">
+        <div class="flex items-center gap-3 mb-3">
+          <div class="w-10 h-10 bg-navy-700 text-white rounded-lg flex items-center justify-center text-lg font-bold">1</div>
+          <div>
+            <div class="text-sm font-semibold text-warm-700">コードの俯瞰</div>
+            <div class="text-xs text-warm-400">3分</div>
+          </div>
+        </div>
+        <p class="text-xs text-warm-500 leading-relaxed">input/src/ の8ファイルを開き、注文処理の流れを把握する。pricing-engine → order-service → discount-service の呼び出し構造を説明。</p>
+      </div>
+
+      <div class="bg-white border border-warm-200 rounded-lg p-5">
+        <div class="flex items-center gap-3 mb-3">
+          <div class="w-10 h-10 bg-navy-700 text-white rounded-lg flex items-center justify-center text-lg font-bold">2</div>
+          <div>
+            <div class="text-sm font-semibold text-warm-700">エラーログの観察</div>
+            <div class="text-xs text-warm-400">2分</div>
+          </div>
+        </div>
+        <p class="text-xs text-warm-500 leading-relaxed">error-log.txt を開き、ERRORとINFOが混在している様子を見せる。「どの注文でエラーが出ているか、法則がわかりますか?」と問いかける。</p>
+      </div>
+
+      <div class="bg-white border border-warm-200 rounded-lg p-5">
+        <div class="flex items-center gap-3 mb-3">
+          <div class="w-10 h-10 bg-navy-700 text-white rounded-lg flex items-center justify-center text-lg font-bold">3</div>
+          <div>
+            <div class="text-sm font-semibold text-warm-700">人手の調査を読む</div>
+            <div class="text-xs text-warm-400">3分</div>
+          </div>
+        </div>
+        <p class="text-xs text-warm-500 leading-relaxed">debug-log.md を開く。仮説1（丸め誤差）、仮説2（税率境界値）がそれぞれ棄却される過程を追い、最終的にどこで止まったかを確認。</p>
+      </div>
+
+      <div class="bg-white border border-warm-200 rounded-lg p-5">
+        <div class="flex items-center gap-3 mb-3">
+          <div class="w-10 h-10 bg-navy-700 text-white rounded-lg flex items-center justify-center text-lg font-bold">4</div>
+          <div>
+            <div class="text-sm font-semibold text-warm-700">受講者に考えてもらう</div>
+            <div class="text-xs text-warm-400">2分</div>
+          </div>
+        </div>
+        <p class="text-xs text-warm-500 leading-relaxed">「このログから何が読み取れるか」を受講者に聞く。ポイント+クーポン併用パターンに気づくかどうかが分岐点。</p>
+      </div>
+
+      <div class="bg-white border border-warm-200 rounded-lg p-5">
+        <div class="flex items-center gap-3 mb-3">
+          <div class="w-10 h-10 bg-navy-700 text-white rounded-lg flex items-center justify-center text-lg font-bold">5</div>
+          <div>
+            <div class="text-sm font-semibold text-warm-700">Claude Code で解析</div>
+            <div class="text-xs text-warm-400">5分</div>
+          </div>
+        </div>
+        <p class="text-xs text-warm-500 leading-relaxed">prompt.md のプロンプトを Claude Code に投入。AIがログを分類し、差額の法則性を導出し、根本原因を特定する過程をリアルタイムで見せる。</p>
+      </div>
+
+      <div class="bg-white border border-warm-200 rounded-lg p-5">
+        <div class="flex items-center gap-3 mb-3">
+          <div class="w-10 h-10 bg-navy-700 text-white rounded-lg flex items-center justify-center text-lg font-bold">6</div>
+          <div>
+            <div class="text-sm font-semibold text-warm-700">結果の解説</div>
+            <div class="text-xs text-warm-400">5分</div>
+          </div>
+        </div>
+        <p class="text-xs text-warm-500 leading-relaxed">diagnosis.md と比較し、AIの推論プロセスを解説。数式証明と修正コードの妥当性を確認。人間の最終判断が必要な点も強調。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- フッター -->
+<footer class="bg-navy-700 text-white">
+  <div class="max-w-7xl mx-auto px-6 py-8 flex items-center justify-between">
+    <div>
+      <div class="text-sm text-navy-200">09_debugging / AI Dev Demo</div>
+      <div class="text-xs text-navy-400 mt-1">単体テストでは通るが結合で壊れるバグを、AIがログ分析で5分で特定する</div>
+    </div>
+    <a href="../showcase/index.html" class="flex items-center gap-2 bg-navy-600 hover:bg-navy-500 text-white px-5 py-2.5 rounded-lg text-sm font-medium transition-colors">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+      showcase に戻る
+    </a>
+  </div>
+</footer>
+
+<script>
+// ソースコードタブ切り替え
+function showSourceTab(tabName) {
+  document.querySelectorAll('[id^="tab-"]').forEach(el => el.classList.add('hidden'));
+  document.getElementById('tab-' + tabName).classList.remove('hidden');
+  document.querySelectorAll('#source-tabs button').forEach(btn => {
+    if (btn.dataset.tab === tabName) {
+      btn.className = 'px-4 py-2 text-xs font-medium tab-active rounded-t';
+    } else {
+      btn.className = 'px-4 py-2 text-xs font-medium tab-inactive rounded-t';
+    }
+  });
+  Prism.highlightAll();
+}
+
+// プロンプトコピー
+function copyPrompt() {
+  const code = document.querySelector('#prompt-content code');
+  navigator.clipboard.writeText(code.textContent).then(() => {
+    const label = document.getElementById('copy-label');
+    label.textContent = 'コピー済';
+    setTimeout(() => { label.textContent = 'コピー'; }, 2000);
+  });
+}
+
+// ナビゲーションハイライト
+const sections = document.querySelectorAll('section[id]');
+const navLinks = document.querySelectorAll('nav a');
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      navLinks.forEach(link => {
+        link.classList.remove('border-navy-700', 'text-navy-700', 'font-medium');
+        link.classList.add('border-transparent', 'text-warm-500');
+        if (link.getAttribute('href') === '#' + entry.target.id) {
+          link.classList.add('border-navy-700', 'text-navy-700', 'font-medium');
+          link.classList.remove('border-transparent', 'text-warm-500');
+        }
+      });
+    }
+  });
+}, { threshold: 0.2 });
+sections.forEach(section => observer.observe(section));
+
+// Prism再ハイライト
+document.addEventListener('DOMContentLoaded', () => Prism.highlightAll());
+</script>
+</body>
+</html>

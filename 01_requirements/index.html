@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>01 要求分析 - 会議議事録からの要件定義 | AI Dev Demo</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-markdown.min.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            navy: {
+              50: '#f0f3f7',
+              100: '#d9e0eb',
+              200: '#b3c1d6',
+              300: '#8da2c2',
+              400: '#6783ad',
+              500: '#4a6a96',
+              600: '#3a5479',
+              700: '#1e3a5f',
+              800: '#162b47',
+              900: '#0e1c2f',
+            },
+            warm: {
+              50: '#f9fafb',
+              100: '#f3f4f6',
+              200: '#e5e7eb',
+              300: '#d1d5db',
+              400: '#9ca3af',
+              500: '#6b7280',
+              600: '#4b5563',
+              700: '#374151',
+              800: '#1f2937',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    html { scroll-behavior: smooth; }
+    body { font-family: 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', 'Yu Gothic', sans-serif; }
+
+    .code-block {
+      max-height: 600px;
+      overflow-y: auto;
+      font-size: 0.8rem;
+      line-height: 1.6;
+    }
+    .code-block::-webkit-scrollbar { width: 6px; }
+    .code-block::-webkit-scrollbar-track { background: #1e1e2e; }
+    .code-block::-webkit-scrollbar-thumb { background: #4a6a96; border-radius: 3px; }
+
+    .annotation-before {
+      background: #fef2f2;
+      border-left: 3px solid #dc2626;
+      color: #991b1b;
+    }
+    .annotation-after {
+      background: #eff6ff;
+      border-left: 3px solid #1e3a5f;
+      color: #1e3a5f;
+    }
+
+    .tab-active {
+      border-bottom: 3px solid #1e3a5f;
+      color: #1e3a5f;
+      font-weight: 600;
+    }
+    .tab-inactive {
+      border-bottom: 3px solid transparent;
+      color: #6b7280;
+    }
+    .tab-inactive:hover {
+      color: #374151;
+      border-bottom-color: #d1d5db;
+    }
+
+    .card-hover {
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .card-hover:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(30, 58, 95, 0.12);
+    }
+
+    .copy-btn {
+      transition: all 0.2s ease;
+    }
+    .copy-btn:hover {
+      background: #1e3a5f;
+      color: white;
+    }
+
+    .stat-number {
+      font-variant-numeric: tabular-nums;
+    }
+
+    .fade-in {
+      animation: fadeIn 0.4s ease-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    pre[class*="language-"] {
+      margin: 0;
+      border-radius: 0;
+      background: #1e1e2e;
+    }
+    code[class*="language-"] {
+      font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+      font-size: 0.8rem;
+    }
+  </style>
+</head>
+<body class="bg-white text-warm-800 antialiased">
+
+  <!-- ヘッダー -->
+  <header class="bg-navy-700 text-white">
+    <div class="max-w-7xl mx-auto px-6 py-5 flex items-center justify-between">
+      <div class="flex items-center gap-4">
+        <span class="inline-flex items-center justify-center w-10 h-10 rounded bg-white/10 text-sm font-bold tracking-tight">01</span>
+        <div>
+          <h1 class="text-xl font-bold tracking-tight">要求分析</h1>
+          <p class="text-navy-200 text-sm mt-0.5">会議議事録からの要件定義</p>
+        </div>
+      </div>
+      <a href="../showcase/index.html" class="inline-flex items-center gap-2 text-sm text-navy-200 hover:text-white transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        Showcase に戻る
+      </a>
+    </div>
+  </header>
+
+  <!-- コンセプト帯 -->
+  <section class="bg-navy-50 border-b border-navy-100">
+    <div class="max-w-7xl mx-auto px-6 py-8">
+      <p class="text-warm-700 text-base leading-relaxed max-w-3xl">
+        キックオフ会議の議事録を入力として、AIが構造化された要件定義書を生成する。
+        人間が30-45分かけて作成する成果物と、AIが3-5分で生成する成果物を比較し、
+        抜け漏れの差を可視化する。
+      </p>
+      <div class="flex gap-8 mt-6">
+        <div class="flex items-baseline gap-2">
+          <span class="stat-number text-3xl font-bold text-navy-700">94</span>
+          <span class="text-sm text-warm-500">行（Before）</span>
+        </div>
+        <div class="flex items-baseline gap-2">
+          <span class="stat-number text-3xl font-bold text-navy-700">325+</span>
+          <span class="text-sm text-warm-500">行（After）</span>
+        </div>
+        <div class="flex items-baseline gap-2">
+          <span class="stat-number text-3xl font-bold text-navy-700">13</span>
+          <span class="text-sm text-warm-500">件の見落とし領域</span>
+        </div>
+        <div class="flex items-baseline gap-2">
+          <span class="stat-number text-3xl font-bold text-navy-700">10+</span>
+          <span class="text-sm text-warm-500">暗黙の要件を推論</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Before / After 比較 -->
+  <section class="max-w-7xl mx-auto px-6 py-10">
+    <h2 class="text-lg font-bold text-navy-700 mb-6">Before / After 比較</h2>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+      <!-- Before カラム -->
+      <div class="border border-warm-200 rounded-lg overflow-hidden">
+        <div class="bg-warm-100 px-5 py-3 flex items-center justify-between border-b border-warm-200">
+          <div class="flex items-center gap-3">
+            <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-warm-300 text-warm-700 text-xs font-bold">B</span>
+            <div>
+              <span class="font-semibold text-warm-800">Before</span>
+              <span class="text-warm-500 text-xs ml-2">人手で作成 / 30-45分</span>
+            </div>
+          </div>
+          <span class="text-xs text-warm-400">before/requirements.md</span>
+        </div>
+
+        <!-- 注釈: Before の問題点 -->
+        <div class="px-5 py-3 space-y-2 border-b border-warm-200 bg-white">
+          <div class="annotation-before px-3 py-2 rounded text-xs">
+            非機能要件セクションが存在しない（性能目標、セキュリティ、可用性がゼロ）
+          </div>
+          <div class="annotation-before px-3 py-2 rounded text-xs">
+            途中参加の情シス要件（SSO必須、IP制限、MDM、SIEM連携）が丸ごと欠落
+          </div>
+          <div class="annotation-before px-3 py-2 rounded text-xs">
+            食品衛生法のトレーサビリティ要件、個人情報保護法リスクの記載なし
+          </div>
+          <div class="annotation-before px-3 py-2 rounded text-xs">
+            予算制約（1,200万円）と来期予算への依存関係が未記載
+          </div>
+          <div class="annotation-before px-3 py-2 rounded text-xs">
+            フォーマット不統一（画面一覧はナンバリング、フェーズ分けは箇条書き）
+          </div>
+        </div>
+
+        <div class="code-block">
+          <pre class="!m-0"><code class="language-markdown"># StockFlow 要件定義書（ドラフト）
+
+作成日: 2026-03-12
+作成者: 田中 誠
+
+---
+
+## 1. システム概要
+
+在庫管理SaaS。Excelによる在庫管理を置き換え、複数拠点の在庫をリアルタイムに管理する。
+
+## 2. 機能要件
+
+### 2.1 商品マスタ管理
+
+- 商品の登録・編集・削除
+- 管理項目: SKU、商品名、カテゴリ、仕入れ先、単価
+- カテゴリは最大3階層の階層構造
+
+### 2.2 在庫管理
+
+- 入庫登録（仕入れ先からの納品）
+- 出庫登録（出荷、廃棄）
+- 倉庫間の在庫移動
+- ロット番号管理
+- 賞味期限管理とFIFO出庫推奨
+
+### 2.3 アラート機能
+
+- 賞味期限が近い商品の通知（30日前、7日前の2段階）
+- 在庫数が閾値を下回った場合の通知
+- アプリ内通知（メール通知は後日）
+
+### 2.4 検索・フィルタ
+
+- 商品名、SKU、カテゴリ、拠点での絞り込み
+- フリーテキスト検索
+- 要発注リスト表示
+
+### 2.5 ダッシュボード
+
+- 在庫状況のサマリー表示
+- 要発注リスト
+- 在庫金額の概要
+
+### 2.6 レポート
+
+- 月次在庫推移レポート
+- カテゴリ別在庫金額
+- CSVエクスポート
+
+### 2.7 ユーザー管理
+
+- 3ロール: 管理者、倉庫スタッフ、閲覧者
+- ログイン認証（二要素認証）
+- 拠点ごとのアクセス制限
+
+### 2.8 データ移行
+
+- CSVインポート機能（バリデーション付き）
+
+## 3. 画面一覧
+
+1. ログイン画面
+2. ダッシュボード
+3. 商品マスタ一覧/登録/編集
+4. 在庫一覧
+5. 入庫登録
+6. 出庫登録
+7. 移動登録
+8. レポート画面
+9. ユーザー管理画面
+
+## 4. フェーズ分け
+
+フェーズ1（~6月末）
+- 在庫一覧表示
+- 入出庫管理
+- ダッシュボード
+- ユーザー認証
+
+フェーズ2
+- レポート機能
+- オフライン対応
+
+フェーズ3
+- 外部システム連携（SAP等）
+
+## 5. 備考
+
+- 来期の予算編成（7月）に向けて、6月末のデモが必須
+- 既存Excelからのデータ移行が必要
+- 将来的にSAP連携の可能性あり</code></pre>
+        </div>
+      </div>
+
+      <!-- After カラム -->
+      <div class="border border-navy-200 rounded-lg overflow-hidden">
+        <div class="bg-navy-50 px-5 py-3 flex items-center justify-between border-b border-navy-200">
+          <div class="flex items-center gap-3">
+            <span class="inline-flex items-center justify-center w-7 h-7 rounded-full bg-navy-700 text-white text-xs font-bold">A</span>
+            <div>
+              <span class="font-semibold text-navy-700">After</span>
+              <span class="text-warm-500 text-xs ml-2">AI生成 / 3-5分</span>
+            </div>
+          </div>
+          <span class="text-xs text-warm-400">expected-output/requirements.md</span>
+        </div>
+
+        <!-- 注釈: After の改善点 -->
+        <div class="px-5 py-3 space-y-2 border-b border-navy-200 bg-white">
+          <div class="annotation-after px-3 py-2 rounded text-xs">
+            全9セクション構成: 概要、ステークホルダー、機能/非機能要件、ユーザーストーリー、MoSCoW、フェーズ、リスク、依存関係
+          </div>
+          <div class="annotation-after px-3 py-2 rounded text-xs">
+            [明示] [推測] [係争] の3タグで要件の出自を追跡可能に
+          </div>
+          <div class="annotation-after px-3 py-2 rounded text-xs">
+            5ロール x 計20件超のユーザーストーリーで「誰のための機能か」を明確化
+          </div>
+          <div class="annotation-after px-3 py-2 rounded text-xs">
+            部署間対立をリスクとして構造化（情シス vs 営業、現場 vs 予算）
+          </div>
+          <div class="annotation-after px-3 py-2 rounded text-xs">
+            未決定事項9件にブロッカー判定を付与し、次のアクションに直結
+          </div>
+        </div>
+
+        <!-- タブ切り替え -->
+        <div class="border-b border-navy-200 bg-white">
+          <div class="flex px-5" id="after-tabs">
+            <button onclick="switchAfterTab('overview')" class="tab-active px-4 py-2.5 text-sm cursor-pointer" data-tab="overview">概要・ステークホルダー</button>
+            <button onclick="switchAfterTab('functional')" class="tab-inactive px-4 py-2.5 text-sm cursor-pointer" data-tab="functional">機能要件</button>
+            <button onclick="switchAfterTab('nonfunctional')" class="tab-inactive px-4 py-2.5 text-sm cursor-pointer" data-tab="nonfunctional">非機能要件</button>
+            <button onclick="switchAfterTab('stories')" class="tab-inactive px-4 py-2.5 text-sm cursor-pointer" data-tab="stories">ストーリー・優先度</button>
+            <button onclick="switchAfterTab('risks')" class="tab-inactive px-4 py-2.5 text-sm cursor-pointer" data-tab="risks">リスク・依存</button>
+          </div>
+        </div>
+
+        <div class="code-block">
+          <!-- 概要・ステークホルダー -->
+          <div id="tab-overview" class="tab-content">
+            <pre class="!m-0"><code class="language-markdown"># StockFlow 要件定義書
+
+作成日: 2026-03-12
+分析元: キックオフ会議議事録（2026-03-10）
+
+## 1. システム概要
+
+複数拠点の在庫をリアルタイムに一元管理するSaaS型在庫管理システム。
+現行のExcel管理を置き換え、二重発注（直近で50万円の損失実績あり）や
+賞味期限切れ出荷といったオペレーション事故を防止する。
+倉庫現場のタブレット利用を前提とし、手袋着用・高温環境下での操作性を確保。
+初年度開発予算1,200万円、フェーズ1は2026年6月末デモ必達。
+来期予算の確保がこのデモ結果に依存。
+全社セキュリティポリシーによりSSO（SAML/OIDC）接続が必須条件。
+
+## 2. ステークホルダー
+
+| ロール | 担当者 | 関心事 | 利害衝突のポイント |
+|--------|--------|--------|-------------------|
+| PM | 田中 誠 | スコープ管理、6月末デモ | 各部門の要望拡大とスケジュールの板挟み |
+| リードエンジニア | 佐藤 美咲 | 技術選定、工数 | オフライン要望を技術的に退けざるを得ない |
+| UIデザイナー | 山田 健太 | タッチUI | デザインシステム整備と納期のトレードオフ |
+| ビジネスオーナー | 鈴木 洋子 | 経営判断、ISO27001 | VPN制限が営業利便性と衝突 |
+| 倉庫現場 | 小林 拓也 | 棚卸し効率化 | オフライン必須だがフェーズ2送りに不満 |
+| 情報システム部 | 渡辺 修一 | SSO/MDM/SIEM | セキュリティポリシーが現場と衝突 |</code></pre>
+          </div>
+
+          <!-- 機能要件 -->
+          <div id="tab-functional" class="tab-content hidden">
+            <pre class="!m-0"><code class="language-markdown">## 3. 機能要件（抜粋）
+
+### FR-100: 商品マスタ管理
+| FR-101 | 商品の登録・編集・削除 | [明示] |
+| FR-106 | SKUの一意性バリデーション | [推測] Excelでの重複管理不能 |
+| FR-107 | 商品マスタの変更履歴保持 | [推測] ISO27001の監査対応 |
+
+### FR-200: 在庫管理
+| FR-207 | 入出庫の取り消し・修正 | [推測] 15人が高温環境で操作→誤入力頻発 |
+| FR-209 | 在庫移動の承認ワークフロー | [推測] 拠点間移動は両拠点に影響 |
+
+### FR-300: アラート・通知
+| FR-306 | 二重発注防止ステータス表示 | [推測] 50万円損失の再発防止 |
+| FR-307 | 賞味期限切れ在庫の自動ロック | [推測] アラートだけでは見落とす |
+
+### FR-700: ユーザー管理・認証
+| FR-703 | SSO連携（SAML/OIDC） | [明示][係争] 情シス必須宣言 |
+| FR-707 | IPアドレス制限（VPN限定） | [明示] 全社ポリシー |
+| FR-708 | MDM登録端末からのみアクセス | [明示][係争] タブレット2台が未登録 |
+
+### FR-900: データ移行・連携
+| FR-905 | 監査ログのSplunk Cloud連携 | [明示] JSON形式・HTTPイベントコレクター |
+
+### FR-600: レポート
+| FR-608 | 保健所査察用トレーサビリティレポート | [推測] 食品衛生法3年保持義務 |</code></pre>
+          </div>
+
+          <!-- 非機能要件 -->
+          <div id="tab-nonfunctional" class="tab-content hidden">
+            <pre class="!m-0"><code class="language-markdown">## 4. 非機能要件
+
+### NFR-100: 性能
+| NFR-101 | 在庫一覧の初期表示 3秒以内 | 旧システム30秒の10倍速 |
+| NFR-102 | 検索結果 1秒以内 | 旧システム10秒→体感ゼロ秒 |
+| NFR-103 | 同時接続50人で性能劣化なし | 3拠点x15人+営業 |
+| NFR-105 | 3万SKUでの動作保証 | 2-3年後の成長見込み |
+
+### NFR-200: セキュリティ
+| NFR-202 | 保存データの暗号化（特に仕入れ価格） | 社内機密情報 |
+| NFR-203 | 操作ログの全件記録 | ISO27001の監査対応 |
+| NFR-204 | 操作ログ保持 最低3年 | 食品衛生法+ISO27001 |
+| NFR-206 | 操作ログの個人情報保護法適合 | 法務確認未了 |
+
+### NFR-400: UX
+| NFR-405 | タッチターゲット最低48px（推奨56px） | 手袋操作・高温環境 |
+| NFR-406 | 主要操作を3タップ以内 | 操作ミス防止 |
+
+### NFR-600: 運用・法規制
+| NFR-603 | 食品衛生法トレーサビリティ 3年保持 | 法的義務 |
+| NFR-604 | 監査ログ Splunk Cloud互換 | 独自フォーマット不可 |</code></pre>
+          </div>
+
+          <!-- ユーザーストーリー・優先度 -->
+          <div id="tab-stories" class="tab-content hidden">
+            <pre class="!m-0"><code class="language-markdown">## 5. ユーザーストーリー（抜粋）
+
+### 倉庫スタッフ
+- US-003: FIFOの出庫推奨を確認したい。
+  賞味期限切れ出荷を二度と起こしたくないから。
+- US-006: 手袋をしたままタブレットを操作したい。
+  夏場40度の倉庫で素手操作は汗で反応しないから。
+
+### 営業企画部
+- US-105: 発注済みステータスを確認したい。
+  二重発注で50万円を失った経験を繰り返したくないから。
+
+### 情報システム部
+- US-401: SSOでユーザー管理を一元化したい。
+  独自アカウント管理ツールが増えると運用コストが膨らむから。
+- US-402: 監査ログをSplunkで横串検索したい。
+  他システムのログと突合してインシデント調査するから。
+
+## 6. 優先度分類（MoSCoW法）
+
+### Must（デモ不可 or 全社ポリシー違反）
+- 商品マスタ / 入出庫管理 / アラート / 検索 / ダッシュボード
+- SSO連携（SAML/OIDC） -- 交渉不可
+- IPアドレス制限 -- 同上
+- CSVインポート / 監査ログSplunk互換
+
+### Should（現場の実用性に直結）
+- 棚卸し基本機能 / タブレット対応 / PWA
+- 入出庫の取消・修正 / 二重発注防止表示
+
+### Could（余裕があれば）
+- 賞味期限切れ自動ロック / レポート手動生成
+- 検索条件保存 / デザインシステム基盤
+
+### Won't（フェーズ1対象外）
+- オフライン対応 / SAP連携 / MDM端末制限
+- レポート定期配信 / 承認ワークフロー</code></pre>
+          </div>
+
+          <!-- リスク・依存 -->
+          <div id="tab-risks" class="tab-content hidden">
+            <pre class="!m-0"><code class="language-markdown">## 8. リスク
+
+| R-01 | スコープ肥大化→6月末デモ遅延 | 高 |
+  棚卸し機能を4月中にShould格下げ判断
+| R-04 | MDM未登録タブレット2台が使えない | 高 |
+  端末入替予算が去年却下。確保できなければ並行運用長期化
+| R-06 | 6月末デモ失敗→来期予算否決 | 高 |
+  フェーズ2以降の全予算に直結
+| R-07 | 操作ログの個人情報保護法抵触 | 中 |
+  就業規則改訂が必要なら労使協議で数ヶ月
+
+## 9. 未決定事項（ブロッカー）
+
+| TBD-01 | 権限マトリックス詳細設計 | 画面設計に着手不可 |
+| TBD-06 | ホスティング環境選定 | 初期構築に影響 |
+| TBD-07 | MDMタブレット入替予算 | 倉庫2台が使用不可 |
+| TBD-08 | 操作ログの個人情報保護法適合 | 本番リリース時期に影響 |
+| TBD-09 | Splunk接続情報 | ログ基盤実装に必要 |
+
+## 依存関係・矛盾
+
+- FR-703（SSO）→ FR-704（MFA）の実装方式を制約
+- FR-707（IP制限）→ NFR-402（PWA）のサービスワーカー検証必要
+- 鈴木氏「営業が外出先から確認」 vs 渡辺氏「VPN限定」 → MDM端末で解決
+- 小林氏オフライン要望 → フェーズ2送り vs 夏場ピーク → 紙運用が残る</code></pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 差分ハイライト カード -->
+  <section class="bg-warm-50 border-t border-b border-warm-200">
+    <div class="max-w-7xl mx-auto px-6 py-10">
+      <h2 class="text-lg font-bold text-navy-700 mb-6">AIが補完した主要な差分</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+
+        <div class="card-hover bg-white rounded-lg border border-warm-200 p-5">
+          <div class="flex items-center gap-2 mb-3">
+            <span class="inline-flex items-center justify-center w-8 h-8 rounded bg-navy-50 text-navy-700 text-sm font-bold">1</span>
+            <h3 class="font-semibold text-navy-700 text-sm">途中参加者の要件を完全捕捉</h3>
+          </div>
+          <p class="text-warm-600 text-sm leading-relaxed">
+            情シスの渡辺氏が15:00に途中参加し、SSO必須、IPアドレス制限、MDM端末制限、SIEM連携を持ち込んだ。Before版ではこれらが全て欠落。AIは「途中参加者の要件は既出と矛盾する可能性がある」として営業部の利便性要望との衝突を [係争] タグで可視化した。
+          </p>
+        </div>
+
+        <div class="card-hover bg-white rounded-lg border border-warm-200 p-5">
+          <div class="flex items-center gap-2 mb-3">
+            <span class="inline-flex items-center justify-center w-8 h-8 rounded bg-navy-50 text-navy-700 text-sm font-bold">2</span>
+            <h3 class="font-semibold text-navy-700 text-sm">非機能要件を25項目抽出</h3>
+          </div>
+          <p class="text-warm-600 text-sm leading-relaxed">
+            Before版は非機能要件セクション自体が存在しない。AIは「前のシステムは起動に30秒」という愚痴から「表示3秒以内」の性能目標を定義し、「手袋で操作」「夏場40度」という発言からタッチターゲット48px以上のUX要件を導出した。
+          </p>
+        </div>
+
+        <div class="card-hover bg-white rounded-lg border border-warm-200 p-5">
+          <div class="flex items-center gap-2 mb-3">
+            <span class="inline-flex items-center justify-center w-8 h-8 rounded bg-navy-50 text-navy-700 text-sm font-bold">3</span>
+            <h3 class="font-semibold text-navy-700 text-sm">法規制リスクの発見</h3>
+          </div>
+          <p class="text-warm-600 text-sm leading-relaxed">
+            食品衛生法のトレーサビリティ要件（出荷記録3年保持義務）と、操作ログの個人情報保護法リスク（就業規則改訂が必要になる可能性）。Before版では法規制への言及がゼロ。後工程で発覚した場合、数ヶ月の遅延要因になる。
+          </p>
+        </div>
+
+        <div class="card-hover bg-white rounded-lg border border-warm-200 p-5">
+          <div class="flex items-center gap-2 mb-3">
+            <span class="inline-flex items-center justify-center w-8 h-8 rounded bg-navy-50 text-navy-700 text-sm font-bold">4</span>
+            <h3 class="font-semibold text-navy-700 text-sm">組織的ブロッカーの特定</h3>
+          </div>
+          <p class="text-warm-600 text-sm leading-relaxed">
+            MDM未登録タブレット2台の問題は、技術ではなく予算の問題。去年経理に却下された経緯があり、解決しないと倉庫スタッフの40%がシステムを使えない。Before版はこの組織横断リスクを完全に見落としている。
+          </p>
+        </div>
+
+        <div class="card-hover bg-white rounded-lg border border-warm-200 p-5">
+          <div class="flex items-center gap-2 mb-3">
+            <span class="inline-flex items-center justify-center w-8 h-8 rounded bg-navy-50 text-navy-700 text-sm font-bold">5</span>
+            <h3 class="font-semibold text-navy-700 text-sm">暗黙の要件を10件以上推論</h3>
+          </div>
+          <p class="text-warm-600 text-sm leading-relaxed">
+            「50万円の二重発注損失」から発注済みステータス表示を、「賞味期限切れ出荷事故」からアラートだけでなく出庫自動ロックを推論。「パートの入れ替わり」からアカウントライフサイクル管理を導出。いずれもBefore版に記載なし。
+          </p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- プロンプト表示 -->
+  <section class="max-w-7xl mx-auto px-6 py-10">
+    <h2 class="text-lg font-bold text-navy-700 mb-2">使用プロンプト</h2>
+    <p class="text-warm-500 text-sm mb-5">このプロンプトをClaude Codeに投入すると、上記のAfter相当の要件定義書が生成される。</p>
+
+    <div class="relative border border-warm-200 rounded-lg overflow-hidden">
+      <div class="bg-warm-100 px-5 py-3 flex items-center justify-between border-b border-warm-200">
+        <span class="text-sm text-warm-600 font-medium">with-ai/prompt.md</span>
+        <button onclick="copyPrompt()" class="copy-btn inline-flex items-center gap-1.5 px-3 py-1.5 rounded border border-navy-200 text-navy-700 text-xs font-medium bg-white">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+          <span id="copy-label">コピー</span>
+        </button>
+      </div>
+      <div class="code-block" style="max-height: 500px;">
+        <pre class="!m-0"><code class="language-markdown" id="prompt-content">以下の会議議事録を分析し、構造化された要件定義書を作成してください。
+
+## 入力ファイル
+./input/meeting-minutes.md
+
+## 分析の観点
+
+1. 明示的に述べられた機能要件の抽出
+2. 会話の文脈から推測できる暗黙の要件の導出
+   - 発言の行間を読む（不満、愚痴、過去のトラブルは品質要件のヒント）
+   - 部署間の対立点から、設計上のトレードオフを特定する
+3. 非機能要件の特定（性能、セキュリティ、可用性、保守性、拡張性、法規制）
+4. ユーザーストーリー形式への変換
+5. MoSCoW法による優先度分類
+6. 部門横断のリスクと政治的ブロッカーの識別
+
+## 出力形式
+
+以下の構成でMarkdownファイルを生成してください:
+
+1. システム概要（3-5行。プロジェクトの背景と制約を含む）
+2. ステークホルダー一覧（ロール、関心事、他部署との利害衝突）
+3. 機能要件（カテゴリ別、各項目にID振り付き）
+   - 明示的要件には [明示] タグを付与
+   - 暗黙の要件には [推測] タグを付与し、根拠となる発言を引用
+   - 部署間で意見が割れた要件は [係争] タグを付与
+4. 非機能要件（性能、セキュリティ、可用性、UX、拡張性、運用、法規制）
+5. ユーザーストーリー一覧
+   - 形式:「&lt;ロール&gt;として、&lt;機能&gt;したい。なぜなら&lt;理由&gt;だから。」
+   - 各ロール最低3件ずつ
+6. 優先度分類（MoSCoW法）
+   - Must / Should / Could / Won't（フェーズ1スコープ内）
+   - 予算1,200万円と3.5ヶ月の制約を考慮した現実的な分類
+7. フェーズ分け提案（各フェーズの目標・コスト概算含む）
+8. リスク・課題・未決定事項
+   - 技術リスクだけでなく組織的リスクも含める
+   - ブロッカーとなりうる未承認事項を明示する
+9. 要件間の依存関係と潜在的な矛盾
+
+## 注意点
+- 会話中の雑談・脱線にも要件のヒントが含まれている
+- 「前のシステム」への不満 = 新システムの品質要件
+- 数値が含まれる発言（件数、期間、頻度、金額）は定量的要件として記録
+- 部署間の対立は「設計でどう両立するか」の視点で扱う
+- 法規制の発言は見落とすと後工程で致命傷になるため必ず抽出
+- 途中参加者の要件は既出要件と矛盾する可能性に注意
+- 抜け漏れの可能性がある領域を最後に指摘すること
+
+出力ファイル: ./output/requirements.md</code></pre>
+      </div>
+    </div>
+  </section>
+
+  <!-- デモ手順 -->
+  <section class="bg-navy-50 border-t border-b border-navy-100">
+    <div class="max-w-7xl mx-auto px-6 py-10">
+      <h2 class="text-lg font-bold text-navy-700 mb-6">デモ手順</h2>
+      <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div class="bg-white rounded-lg border border-navy-100 p-4">
+          <div class="text-xs text-navy-500 font-medium mb-1">Step 1 / 2分</div>
+          <p class="text-sm text-warm-700">議事録の内容を画面共有で見せる。部署間の対立や予算制約に注目させる。</p>
+        </div>
+        <div class="bg-white rounded-lg border border-navy-100 p-4">
+          <div class="text-xs text-navy-500 font-medium mb-1">Step 2 / 2分</div>
+          <p class="text-sm text-warm-700">Before版を見せ、「人手で急いで作るとこうなる」と説明。非機能要件の欠落を指摘。</p>
+        </div>
+        <div class="bg-white rounded-lg border border-navy-100 p-4">
+          <div class="text-xs text-navy-500 font-medium mb-1">Step 3 / 1分</div>
+          <p class="text-sm text-warm-700">プロンプトをClaude Codeに貼り付けて実行。生成過程をリアルタイムで見せる。</p>
+        </div>
+        <div class="bg-white rounded-lg border border-navy-100 p-4">
+          <div class="text-xs text-navy-500 font-medium mb-1">Step 4 / 5分</div>
+          <p class="text-sm text-warm-700">生成結果とAfter見本を比較。暗黙の要件と [係争] タグに着目して議論。</p>
+        </div>
+        <div class="bg-white rounded-lg border border-navy-100 p-4">
+          <div class="text-xs text-navy-500 font-medium mb-1">Step 5 / 5分</div>
+          <p class="text-sm text-warm-700">BeforeとAfterの差分から、AIが補完した13の見落とし領域を確認。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 学びのポイント -->
+  <section class="max-w-7xl mx-auto px-6 py-10">
+    <h2 class="text-lg font-bold text-navy-700 mb-4">学びのポイント</h2>
+    <div class="max-w-3xl space-y-4 text-warm-700 text-sm leading-relaxed">
+      <p>
+        会議の雑談や愚痴に要件が埋もれている。「前のシステムは起動に30秒かかった」という一言から
+        「表示3秒以内」というパフォーマンス目標値を定義し、「手袋で操作したい」という現場の声から
+        タッチターゲット48px以上のUX要件を導き出す。人間がこれをやると、自分の関心領域以外の
+        発言を無意識にフィルタリングしてしまう。
+      </p>
+      <p>
+        途中参加者が持ち込む要件は厄介で、既出の合意事項と矛盾することがある。
+        今回のケースでは、情シスの渡辺氏が「VPN経由限定」を持ち込み、営業企画の鈴木氏の
+        「外出先からスマホで確認したい」と正面衝突した。AIはこの衝突を [係争] タグで
+        構造化し、MDM端末という解決策と残存リスクの両方を提示できる。
+      </p>
+      <p>
+        ただしAIの出力は出発点であり、ドメイン知識を持つ人間のレビューは不可欠。
+        AIが推論した「サンプル出荷」区分が本当にこの会社のビジネスに必要かどうかは、
+        現場を知る人間でなければ判断できない。
+      </p>
+    </div>
+  </section>
+
+  <!-- フッター -->
+  <footer class="bg-navy-700 text-white">
+    <div class="max-w-7xl mx-auto px-6 py-5 flex items-center justify-between">
+      <span class="text-navy-300 text-sm">01_requirements - 要求分析</span>
+      <a href="../showcase/index.html" class="inline-flex items-center gap-2 px-4 py-2 rounded bg-white/10 hover:bg-white/20 transition-colors text-sm">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        Showcase に戻る
+      </a>
+    </div>
+  </footer>
+
+  <script>
+    function switchAfterTab(tabName) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+      document.getElementById('tab-' + tabName).classList.remove('hidden');
+
+      document.querySelectorAll('#after-tabs button').forEach(btn => {
+        if (btn.dataset.tab === tabName) {
+          btn.className = 'tab-active px-4 py-2.5 text-sm cursor-pointer';
+        } else {
+          btn.className = 'tab-inactive px-4 py-2.5 text-sm cursor-pointer';
+        }
+      });
+
+      Prism.highlightAll();
+    }
+
+    function copyPrompt() {
+      const content = document.getElementById('prompt-content').textContent;
+      navigator.clipboard.writeText(content).then(() => {
+        const label = document.getElementById('copy-label');
+        label.textContent = 'コピー済み';
+        setTimeout(() => { label.textContent = 'コピー'; }, 2000);
+      });
+    }
+
+    Prism.highlightAll();
+  </script>
+
+</body>
+</html>

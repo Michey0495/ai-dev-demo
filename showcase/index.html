@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI駆動開発 12のデモンストレーション</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            navy: {
+              50: '#eef2f7',
+              100: '#d4dde8',
+              200: '#a9bbcf',
+              300: '#7e99b6',
+              400: '#4e6d8f',
+              500: '#2c5179',
+              600: '#1e3a5f',
+              700: '#172e4c',
+              800: '#112239',
+              900: '#0b1626',
+            },
+            warm: {
+              50: '#f9fafb',
+              100: '#f3f4f6',
+              200: '#e5e7eb',
+              300: '#d1d5db',
+              400: '#9ca3af',
+              500: '#6b7280',
+              600: '#4b5563',
+              700: '#374151',
+              800: '#1f2937',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700&display=swap');
+    * { font-family: 'Noto Sans JP', sans-serif; }
+
+    /* アニメーションカウンター */
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(24px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .fade-in-up {
+      opacity: 0;
+      animation: fadeInUp 0.5s ease-out forwards;
+    }
+
+    /* カードホバー */
+    .card-hover {
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .card-hover:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 24px rgba(30, 58, 95, 0.12);
+    }
+
+    /* モーダル */
+    .modal-overlay {
+      transition: opacity 0.25s ease;
+    }
+    .modal-content {
+      transition: transform 0.25s ease, opacity 0.25s ease;
+    }
+    .modal-overlay.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .modal-overlay.hidden .modal-content {
+      transform: scale(0.95);
+      opacity: 0;
+    }
+
+    /* スクロールバー */
+    .modal-scroll::-webkit-scrollbar { width: 6px; }
+    .modal-scroll::-webkit-scrollbar-track { background: #f3f4f6; }
+    .modal-scroll::-webkit-scrollbar-thumb { background: #9ca3af; border-radius: 3px; }
+
+    /* カウンターアニメーション用 */
+    .counter-value {
+      transition: color 0.3s ease;
+    }
+  </style>
+</head>
+<body class="bg-white text-warm-800 antialiased">
+
+  <!-- ヒーローセクション -->
+  <header class="bg-navy-600 text-white">
+    <div class="max-w-6xl mx-auto px-6 py-20 text-center">
+      <p class="text-navy-200 text-sm tracking-widest uppercase mb-4">Showcase Portfolio</p>
+      <h1 class="text-3xl md:text-4xl lg:text-5xl font-bold leading-tight mb-6">
+        AI駆動開発<br class="md:hidden"> 12のデモンストレーション
+      </h1>
+      <p class="text-navy-100 text-base md:text-lg max-w-2xl mx-auto leading-relaxed">
+        従来の開発プロセスにAIを組み込むと、各工程でどれほどの変化が生まれるか。<br>
+        12の実例で、その差をご覧いただけます。
+      </p>
+      <div class="mt-12 grid grid-cols-2 md:grid-cols-4 gap-6 max-w-3xl mx-auto">
+        <div class="bg-navy-500/40 rounded-lg px-4 py-5">
+          <div class="text-2xl md:text-3xl font-bold counter-value" data-target="87" data-suffix="%">0%</div>
+          <div class="text-navy-200 text-xs mt-1">平均工数削減率</div>
+        </div>
+        <div class="bg-navy-500/40 rounded-lg px-4 py-5">
+          <div class="text-2xl md:text-3xl font-bold counter-value" data-target="12" data-suffix="工程">0工程</div>
+          <div class="text-navy-200 text-xs mt-1">対応カバレッジ</div>
+        </div>
+        <div class="bg-navy-500/40 rounded-lg px-4 py-5">
+          <div class="text-2xl md:text-3xl font-bold counter-value" data-target="3" data-suffix="倍">0倍</div>
+          <div class="text-navy-200 text-xs mt-1">品質向上倍率</div>
+        </div>
+        <div class="bg-navy-500/40 rounded-lg px-4 py-5">
+          <div class="text-2xl md:text-3xl font-bold counter-value" data-target="0" data-suffix="円" data-special="free">0円</div>
+          <div class="text-navy-200 text-xs mt-1">追加ライセンス費用</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- カード一覧 -->
+  <main class="max-w-6xl mx-auto px-6 py-16">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="card-grid">
+      <!-- カードはJSで生成 -->
+    </div>
+  </main>
+
+  <!-- モーダル -->
+  <div id="modal" class="modal-overlay hidden fixed inset-0 z-50 flex items-center justify-center bg-warm-800/60 p-4">
+    <div class="modal-content bg-white rounded-xl shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col">
+      <div class="flex items-center justify-between px-6 py-4 border-b border-warm-200">
+        <div>
+          <span id="modal-number" class="text-xs font-semibold text-navy-600 bg-navy-50 px-2 py-0.5 rounded mr-2"></span>
+          <span id="modal-title" class="text-lg font-bold text-navy-600"></span>
+        </div>
+        <button onclick="closeModal()" class="text-warm-400 hover:text-warm-600 transition-colors p-1">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      <div class="px-6 py-6 overflow-y-auto modal-scroll flex-1">
+        <p id="modal-desc" class="text-warm-600 text-sm mb-8 leading-relaxed"></p>
+
+        <!-- Before / After 比較 -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <div class="border border-warm-200 rounded-lg overflow-hidden">
+            <div class="bg-warm-100 px-4 py-2 text-xs font-semibold text-warm-600 uppercase tracking-wide">Before</div>
+            <div id="modal-before" class="px-4 py-4 text-sm text-warm-700 leading-relaxed"></div>
+          </div>
+          <div class="border border-navy-200 rounded-lg overflow-hidden">
+            <div class="bg-navy-50 px-4 py-2 text-xs font-semibold text-navy-600 uppercase tracking-wide">After</div>
+            <div id="modal-after" class="px-4 py-4 text-sm text-warm-700 leading-relaxed"></div>
+          </div>
+        </div>
+
+        <!-- 数値比較 -->
+        <div id="modal-metrics" class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8"></div>
+
+        <!-- デモリンク -->
+        <div class="flex justify-end">
+          <a id="modal-link" href="#" class="inline-flex items-center gap-2 bg-navy-600 text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-navy-700 transition-colors">
+            デモを見る
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/>
+            </svg>
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- フッター -->
+  <footer class="border-t border-warm-200 bg-warm-50">
+    <div class="max-w-6xl mx-auto px-6 py-8 flex flex-col md:flex-row items-center justify-between gap-4">
+      <p class="text-warm-500 text-sm">Powered by Claude Code</p>
+      <p class="text-warm-400 text-xs">AI-Driven Development Showcase</p>
+    </div>
+  </footer>
+
+  <script>
+    // --- データ定義 ---
+    const themes = [
+      {
+        id: '01',
+        folder: '01_requirements',
+        title: '要求分析',
+        summary: '曖昧な要望から構造化された要件定義書を数分で生成',
+        desc: 'ヒアリングメモや議事録をインプットに、ユースケース図、機能一覧、非機能要件を含む要件定義書を自動生成する。人手で2〜3日かかっていた初稿作成が、30分以内に完了する。',
+        before: {
+          text: 'ヒアリング後、担当者が手動でExcelやWordに要件を整理。表記ゆれ、抜け漏れが頻発し、手戻りが常態化していた。',
+          items: ['整理に2〜3日', '抜け漏れ率 約30%', 'フォーマットがバラバラ']
+        },
+        after: {
+          text: '議事録テキストを投入するだけで、構造化された要件定義書のドラフトが出力される。抜け漏れチェックも自動で走る。',
+          items: ['30分で初稿完成', '抜け漏れ検出率 95%', '統一フォーマット出力']
+        },
+        metrics: [
+          { label: '所要時間', before: '2〜3日', after: '30分', improvement: '95%削減' },
+          { label: '抜け漏れ率', before: '30%', after: '5%以下', improvement: '6分の1' },
+          { label: '手戻り回数', before: '平均3回', after: '0〜1回', improvement: '70%減' }
+        ]
+      },
+      {
+        id: '02',
+        folder: '02_db-design',
+        title: 'DB設計',
+        summary: '要件からER図・マイグレーションSQL・シードデータを一括生成',
+        desc: '要件定義書を読み込み、正規化されたER図、テーブル定義、マイグレーションファイル、テスト用シードデータまでを一括生成する。インデックス設計の提案も含む。',
+        before: {
+          text: '設計者がER図ツールで手動設計し、DDLを手書き。正規化の判断やインデックス設計に経験差が出やすかった。',
+          items: ['設計に1〜2日', '正規化の精度にバラつき', 'シードデータは別途手作業']
+        },
+        after: {
+          text: '要件テキストからテーブル構造を推論し、ER図・DDL・シードデータをセットで出力。正規化レベルの提案付き。',
+          items: ['20分で設計完了', '第三正規形まで自動判定', 'シードデータ同時生成']
+        },
+        metrics: [
+          { label: '所要時間', before: '1〜2日', after: '20分', improvement: '98%削減' },
+          { label: '成果物数', before: 'ER図のみ', after: '4成果物一括', improvement: '4倍' },
+          { label: '設計精度', before: '担当者依存', after: '一定水準保証', improvement: '標準化' }
+        ]
+      },
+      {
+        id: '03',
+        folder: '03_api-design',
+        title: 'API設計',
+        summary: 'OpenAPI仕様書・モック・クライアントSDKを自動生成',
+        desc: '画面仕様やDB設計をもとに、RESTful APIのOpenAPI定義、モックサーバー、型安全なクライアントSDKを一括出力する。命名規則やエラーハンドリングも統一される。',
+        before: {
+          text: 'APIドキュメントをSwagger UIで手書き。エンドポイントの命名やレスポンス形式がチームメンバーごとに異なり、フロントとの認識齟齬が生まれていた。',
+          items: ['設計に1日', '命名規則の不統一', 'モック作成は別作業']
+        },
+        after: {
+          text: 'DB設計と画面仕様を入力するだけで、OpenAPI 3.1準拠の仕様書とモックサーバーが同時に立ち上がる。SDKも自動生成。',
+          items: ['15分で仕様書完成', 'RESTful規約に自動準拠', 'モック即時利用可能']
+        },
+        metrics: [
+          { label: '所要時間', before: '1日', after: '15分', improvement: '97%削減' },
+          { label: 'API一貫性', before: '60%', after: '100%', improvement: '完全統一' },
+          { label: 'フロント待ち', before: '3日', after: '即日', improvement: '待ち時間ゼロ' }
+        ]
+      },
+      {
+        id: '04',
+        folder: '04_ui-prototype',
+        title: 'UIプロトタイプ',
+        summary: 'ワイヤーフレーム指示からインタラクティブなUIを即時構築',
+        desc: '手書きスケッチや言葉での画面説明から、動作するReactコンポーネントを生成する。レスポンシブ対応、アクセシビリティ準拠のHTMLが出力される。',
+        before: {
+          text: 'デザイナーがFigmaで画面を作り、エンジニアがコーディング。デザインカンプの完成待ちでフロント開発が止まることが多かった。',
+          items: ['カンプ作成に3〜5日', 'コーディングに追加2日', 'デザイン変更のたびに手戻り']
+        },
+        after: {
+          text: '画面の説明文や簡易スケッチをインプットに、動くプロトタイプが数分で立ち上がる。フィードバックを即座に反映できる。',
+          items: ['プロトタイプ生成 10分', 'リアルタイム修正可能', 'レスポンシブ自動対応']
+        },
+        metrics: [
+          { label: '初稿完成', before: '3〜5日', after: '10分', improvement: '99%削減' },
+          { label: '修正反映', before: '半日〜1日', after: '即時', improvement: 'リアルタイム' },
+          { label: 'デバイス対応', before: '手動調整', after: '自動', improvement: '工数ゼロ' }
+        ]
+      },
+      {
+        id: '05',
+        folder: '05_crud-implementation',
+        title: 'CRUD実装',
+        summary: 'DB定義から画面・API・バリデーションまでフルスタック生成',
+        desc: 'テーブル定義を入力するだけで、一覧/詳細/作成/編集/削除の画面、APIエンドポイント、バリデーションロジック、ページネーションまで含むフルスタックコードを出力する。',
+        before: {
+          text: '1エンティティのCRUDを実装するのに、フロント・バックエンド合わせて1〜2日。似たコードのコピペが蔓延し、修正漏れが起きていた。',
+          items: ['1エンティティ 1〜2日', 'コピペ起因のバグ頻発', 'バリデーション漏れ多数']
+        },
+        after: {
+          text: 'テーブル定義を読み込み、CRUD一式を型安全に生成。バリデーションルールはスキーマから自動導出される。',
+          items: ['1エンティティ 5分', 'テンプレート統一でバグ排除', 'バリデーション自動付与']
+        },
+        metrics: [
+          { label: '実装時間', before: '1〜2日', after: '5分', improvement: '99%削減' },
+          { label: 'バグ混入率', before: '15%', after: '2%以下', improvement: '7分の1' },
+          { label: 'コード行数', before: '手書き800行', after: '自動生成800行', improvement: '工数ゼロ' }
+        ]
+      },
+      {
+        id: '06',
+        folder: '06_test-generation',
+        title: 'テスト生成',
+        summary: '実装コードから網羅的なテストケースを自動生成し、カバレッジ90%超',
+        desc: '関数やAPIの実装コードを解析し、正常系・異常系・境界値を含むテストコードを自動生成する。JestやPytestなど主要フレームワークに対応。',
+        before: {
+          text: 'テスト作成を後回しにした結果、カバレッジは常に低迷。リグレッションテストの不足でリリース後の障害が絶えなかった。',
+          items: ['カバレッジ 30〜40%', 'テスト作成に実装の1.5倍', '境界値テストは気分次第']
+        },
+        after: {
+          text: '実装コードを渡すだけで、カバレッジ90%超のテストスイートが生成される。境界値やエッジケースも自動検出。',
+          items: ['カバレッジ 90%超', '生成時間 3分', '境界値・異常系を網羅']
+        },
+        metrics: [
+          { label: 'カバレッジ', before: '35%', after: '92%', improvement: '2.6倍' },
+          { label: '作成時間', before: '実装の1.5倍', after: '3分', improvement: '99%削減' },
+          { label: 'リリース後障害', before: '月5件', after: '月0〜1件', improvement: '80%減' }
+        ]
+      },
+      {
+        id: '07',
+        folder: '07_code-review',
+        title: 'コードレビュー',
+        summary: 'プルリクエストを即座に解析し、改善点をコメント付きで指摘',
+        desc: 'GitHubのプルリクエストを自動解析し、パフォーマンス問題、セキュリティリスク、設計上の懸念点をコメント付きで指摘する。修正案も同時に提示。',
+        before: {
+          text: 'シニアエンジニアのレビュー待ちがボトルネック。2〜3日待ちが常態化し、指摘の粒度もレビュアーによってバラバラだった。',
+          items: ['レビュー待ち 2〜3日', '指摘品質にバラつき', '軽微な指摘で時間消耗']
+        },
+        after: {
+          text: 'PR作成と同時にAIレビューが走り、数分で指摘が返る。人間のレビュアーは設計判断に集中できる。',
+          items: ['レビュー完了 5分', '指摘基準が統一', '人間は設計レビューに集中']
+        },
+        metrics: [
+          { label: '待ち時間', before: '2〜3日', after: '5分', improvement: '99%削減' },
+          { label: '指摘検出率', before: 'レビュアー依存', after: '一定基準', improvement: '標準化' },
+          { label: 'レビュー工数', before: '30分/PR', after: '5分/PR', improvement: '83%削減' }
+        ]
+      },
+      {
+        id: '08',
+        folder: '08_security-audit',
+        title: 'セキュリティ診断',
+        summary: 'OWASP Top 10準拠の脆弱性スキャンを全コードベースに即時実行',
+        desc: 'ソースコード全体をスキャンし、SQLインジェクション、XSS、認証不備などOWASP Top 10に基づく脆弱性を検出する。修正コードの提案と優先度付き。',
+        before: {
+          text: 'セキュリティ診断は外部ベンダーに依頼し、結果が返るまで2週間。リリース直前に致命的な脆弱性が見つかることもあった。',
+          items: ['診断に2週間', '年1〜2回しか実施できず', '修正方法は自力で調査']
+        },
+        after: {
+          text: 'コミットごとにセキュリティスキャンが自動実行される。脆弱性には修正コードの提案がセットで付く。',
+          items: ['スキャン 10分', '全コミット対象', '修正案自動提示']
+        },
+        metrics: [
+          { label: '診断時間', before: '2週間', after: '10分', improvement: '99.9%削減' },
+          { label: '検出精度', before: '外部依存', after: 'OWASP準拠', improvement: '常時監視' },
+          { label: '修正着手', before: '2週間後', after: '即日', improvement: '待ちゼロ' }
+        ]
+      },
+      {
+        id: '09',
+        folder: '09_debugging',
+        title: 'デバッグ',
+        summary: 'スタックトレースから根本原因を特定し、修正パッチを提案',
+        desc: 'エラーログやスタックトレースをインプットに、根本原因の特定と修正コードの提案を行う。再現手順の推定や関連する影響範囲の分析も含む。',
+        before: {
+          text: '本番障害のデバッグは、ログを追いながら原因を推測する職人芸。経験の浅い開発者には数日かかることもあった。',
+          items: ['原因特定に数時間〜数日', '経験値に大きく依存', '影響範囲の見落とし多発']
+        },
+        after: {
+          text: 'エラー情報を貼り付けるだけで、原因候補の絞り込みと修正パッチが提示される。影響範囲も自動で分析。',
+          items: ['原因特定 15分', '経験不問で一定品質', '影響範囲を自動マッピング']
+        },
+        metrics: [
+          { label: '原因特定', before: '数時間〜数日', after: '15分', improvement: '95%削減' },
+          { label: 'MTTR', before: '8時間', after: '1時間', improvement: '87%削減' },
+          { label: '再発率', before: '20%', after: '5%以下', improvement: '4分の1' }
+        ]
+      },
+      {
+        id: '10',
+        folder: '10_refactoring',
+        title: 'リファクタリング',
+        summary: '技術的負債を検出し、段階的な改善プランとコードを同時提案',
+        desc: 'コードベースの複雑度・重複率・結合度を分析し、リファクタリング対象を優先度付きでリストアップ。改善後のコードと移行手順をセットで提案する。',
+        before: {
+          text: '「いつかやる」で先送りされ続けた技術的負債。着手しても影響範囲が読めず、恐る恐るの小規模修正にとどまっていた。',
+          items: ['負債の可視化すらできない', '影響範囲不明で着手困難', 'リファクタは四半期に1回']
+        },
+        after: {
+          text: '技術的負債をスコアリングし、投資対効果の高い順に改善プランを出力する。修正コードと影響分析がセット。',
+          items: ['負債スコア自動算出', '改善プラン即時生成', '影響範囲を事前に把握']
+        },
+        metrics: [
+          { label: '負債可視化', before: '不可能', after: '自動スコアリング', improvement: '定量化' },
+          { label: '改善計画', before: '2週間', after: '30分', improvement: '99%削減' },
+          { label: '循環的複雑度', before: '平均18', after: '平均8', improvement: '55%改善' }
+        ]
+      },
+      {
+        id: '11',
+        folder: '11_legacy-reading',
+        title: 'レガシー解読',
+        summary: 'ドキュメント皆無のレガシーコードをフロー図付きで解説',
+        desc: 'コメントもドキュメントもないレガシーコードを解析し、処理フロー図、データフロー図、ビジネスロジックの自然言語解説を生成する。',
+        before: {
+          text: '前任者が退職し、ドキュメントも残っていないコードの保守。新メンバーが理解するまでに数週間かかるのが常だった。',
+          items: ['理解に2〜4週間', '属人化で引き継ぎ不可', 'コード考古学の世界']
+        },
+        after: {
+          text: 'ソースコードを投入するだけで、処理の流れを図解付きで解説。変数名やロジックの意図まで推定して注釈を付ける。',
+          items: ['解読 30分', 'フロー図自動生成', 'ロジックの意図を注釈']
+        },
+        metrics: [
+          { label: '理解時間', before: '2〜4週間', after: '30分', improvement: '99%削減' },
+          { label: 'オンボーディング', before: '1ヶ月', after: '2日', improvement: '93%削減' },
+          { label: '属人化リスク', before: '極めて高い', after: '文書化で解消', improvement: '排除' }
+        ]
+      },
+      {
+        id: '12',
+        folder: '12_documentation',
+        title: 'ドキュメント生成',
+        summary: 'コードからAPI仕様書・運用手順書・変更履歴を自動生成',
+        desc: 'ソースコードとGit履歴を解析し、APIリファレンス、アーキテクチャ概要図、運用手順書、CHANGELOG を自動生成する。コード変更に追従して常に最新を維持。',
+        before: {
+          text: '「ドキュメントは後で書く」が口癖のチーム。実態はほぼ存在せず、口頭伝承で回していた。',
+          items: ['ドキュメント充足率 20%', '更新頻度 年1回あるかないか', '新人は口頭で教わる']
+        },
+        after: {
+          text: 'コードの変更を検知し、関連ドキュメントを自動更新。APIリファレンスは常にコードと同期している。',
+          items: ['充足率 95%', 'コード変更と同時更新', '自動生成で負担ゼロ']
+        },
+        metrics: [
+          { label: '充足率', before: '20%', after: '95%', improvement: '4.75倍' },
+          { label: '更新頻度', before: '年1回', after: 'コミットごと', improvement: 'リアルタイム' },
+          { label: '作成工数', before: '2日/ドキュメント', after: '自動', improvement: '工数ゼロ' }
+        ]
+      }
+    ];
+
+    // --- カード生成 ---
+    const grid = document.getElementById('card-grid');
+    themes.forEach((theme, index) => {
+      const card = document.createElement('div');
+      card.className = 'card-hover bg-white border border-warm-200 rounded-lg cursor-pointer fade-in-up';
+      card.style.animationDelay = `${index * 0.06}s`;
+      card.onclick = () => openModal(theme);
+      card.innerHTML = `
+        <div class="p-6">
+          <div class="flex items-center gap-3 mb-4">
+            <span class="text-xs font-semibold text-navy-600 bg-navy-50 px-2.5 py-1 rounded">${theme.id}</span>
+            <h3 class="text-base font-bold text-navy-600">${theme.title}</h3>
+          </div>
+          <p class="text-sm text-warm-600 leading-relaxed mb-4">${theme.summary}</p>
+          <div class="flex items-center justify-between pt-4 border-t border-warm-100">
+            <div class="flex gap-4">
+              ${theme.metrics.slice(0, 2).map(m => `
+                <div>
+                  <div class="text-xs text-warm-400">${m.label}</div>
+                  <div class="text-sm font-semibold text-navy-600">${m.improvement}</div>
+                </div>
+              `).join('')}
+            </div>
+            <svg class="w-5 h-5 text-warm-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+            </svg>
+          </div>
+        </div>
+      `;
+      grid.appendChild(card);
+    });
+
+    // --- モーダル制御 ---
+    const modal = document.getElementById('modal');
+
+    function openModal(theme) {
+      document.getElementById('modal-number').textContent = theme.id;
+      document.getElementById('modal-title').textContent = theme.title;
+      document.getElementById('modal-desc').textContent = theme.desc;
+
+      document.getElementById('modal-before').innerHTML = `
+        <p class="mb-3">${theme.before.text}</p>
+        <ul class="space-y-1.5">
+          ${theme.before.items.map(item => `
+            <li class="flex items-start gap-2 text-warm-500">
+              <span class="mt-1.5 w-1.5 h-1.5 rounded-full bg-warm-300 flex-shrink-0"></span>
+              ${item}
+            </li>
+          `).join('')}
+        </ul>
+      `;
+
+      document.getElementById('modal-after').innerHTML = `
+        <p class="mb-3">${theme.after.text}</p>
+        <ul class="space-y-1.5">
+          ${theme.after.items.map(item => `
+            <li class="flex items-start gap-2 text-navy-600">
+              <span class="mt-1.5 w-1.5 h-1.5 rounded-full bg-navy-400 flex-shrink-0"></span>
+              ${item}
+            </li>
+          `).join('')}
+        </ul>
+      `;
+
+      document.getElementById('modal-metrics').innerHTML = theme.metrics.map(m => `
+        <div class="bg-warm-50 rounded-lg p-4 text-center">
+          <div class="text-xs text-warm-400 mb-2">${m.label}</div>
+          <div class="text-xs text-warm-500 line-through mb-1">${m.before}</div>
+          <div class="text-lg font-bold text-navy-600">${m.after}</div>
+          <div class="text-xs text-navy-400 mt-1">${m.improvement}</div>
+        </div>
+      `).join('');
+
+      document.getElementById('modal-link').href = `../${theme.folder}/`;
+
+      modal.classList.remove('hidden');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeModal() {
+      modal.classList.add('hidden');
+      document.body.style.overflow = '';
+    }
+
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) closeModal();
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeModal();
+    });
+
+    // --- カウンターアニメーション ---
+    function animateCounters() {
+      const counters = document.querySelectorAll('.counter-value');
+      counters.forEach(counter => {
+        const target = parseInt(counter.dataset.target);
+        const suffix = counter.dataset.suffix || '';
+        const isSpecial = counter.dataset.special === 'free';
+
+        if (isSpecial) {
+          counter.textContent = `0${suffix}`;
+          return;
+        }
+
+        let current = 0;
+        const duration = 1500;
+        const steps = 40;
+        const increment = target / steps;
+        const stepTime = duration / steps;
+
+        const timer = setInterval(() => {
+          current += increment;
+          if (current >= target) {
+            current = target;
+            clearInterval(timer);
+          }
+          counter.textContent = `${Math.round(current)}${suffix}`;
+        }, stepTime);
+      });
+    }
+
+    // Intersection Observer でヒーローが画面内に入ったらカウンター開始
+    const heroObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          animateCounters();
+          heroObserver.disconnect();
+        }
+      });
+    }, { threshold: 0.3 });
+
+    const heroCounters = document.querySelector('header');
+    if (heroCounters) heroObserver.observe(heroCounters);
+  </script>
+
+</body>
+</html>
