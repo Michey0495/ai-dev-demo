@@ -11,16 +11,16 @@
         extend: {
           colors: {
             navy: {
-              50: '#eef2f7',
-              100: '#d4dde8',
-              200: '#a9bbcf',
-              300: '#7e99b6',
-              400: '#4e6d8f',
-              500: '#2c5179',
-              600: '#1e3a5f',
-              700: '#172e4c',
-              800: '#112239',
-              900: '#0b1626',
+              50: '#fef2f2',
+              100: '#fde3e3',
+              200: '#f9b4b4',
+              300: '#f28080',
+              400: '#e84d4d',
+              500: '#cc2222',
+              600: '#b91c1c',
+              700: '#991515',
+              800: '#7a1010',
+              900: '#5c0c0c',
             },
             warm: {
               50: '#f9fafb',
@@ -93,6 +93,7 @@
   <!-- ヒーローセクション -->
   <header class="bg-navy-600 text-white">
     <div class="max-w-6xl mx-auto px-6 py-20 text-center">
+      <img src="data:image/png;base64,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" alt="Givery" class="h-10 mx-auto mb-8 brightness-0 invert">
       <p class="text-navy-200 text-sm tracking-widest uppercase mb-4">Showcase Portfolio</p>
       <h1 class="text-3xl md:text-4xl lg:text-5xl font-bold leading-tight mb-6">
         AI駆動開発<br class="md:hidden"> 12のデモンストレーション
@@ -103,7 +104,7 @@
       </p>
       <div class="mt-12 grid grid-cols-2 md:grid-cols-4 gap-6 max-w-3xl mx-auto">
         <div class="bg-navy-500/40 rounded-lg px-4 py-5">
-          <div class="text-2xl md:text-3xl font-bold counter-value" data-target="87" data-suffix="%">0%</div>
+          <div class="text-2xl md:text-3xl font-bold">80~90%</div>
           <div class="text-navy-200 text-xs mt-1">平均工数削減率</div>
         </div>
         <div class="bg-navy-500/40 rounded-lg px-4 py-5">
@@ -180,7 +181,7 @@
   <!-- フッター -->
   <footer class="border-t border-warm-200 bg-warm-50">
     <div class="max-w-6xl mx-auto px-6 py-8 flex flex-col md:flex-row items-center justify-between gap-4">
-      <p class="text-warm-500 text-sm">Powered by Claude Code</p>
+      <p class="text-warm-500 text-sm">Powered by Claude Code / Givery, Inc.</p>
       <p class="text-warm-400 text-xs">AI-Driven Development Showcase</p>
     </div>
   </footer>
@@ -203,9 +204,9 @@
           items: ['30分で初稿完成', '抜け漏れ検出率 95%', '統一フォーマット出力']
         },
         metrics: [
-          { label: '所要時間', before: '2〜3日', after: '30分', improvement: '95%削減' },
-          { label: '抜け漏れ率', before: '30%', after: '5%以下', improvement: '6分の1' },
-          { label: '手戻り回数', before: '平均3回', after: '0〜1回', improvement: '70%減' }
+          { label: '所要時間', before: '2〜3日', after: '30分', improvement: '90~95%削減' },
+          { label: '抜け漏れ率', before: '30%', after: '5%以下', improvement: '5~6分の1' },
+          { label: '手戻り回数', before: '平均3回', after: '0〜1回', improvement: '60~70%減' }
         ],
         skills: [
           { name: 'pm-skills', desc: '要件の構造化・優先度付けを自動化', type: 'skill' },
@@ -228,8 +229,8 @@
           items: ['20分で設計完了', '第三正規形まで自動判定', 'シードデータ同時生成']
         },
         metrics: [
-          { label: '所要時間', before: '1〜2日', after: '20分', improvement: '98%削減' },
-          { label: '成果物数', before: 'ER図のみ', after: '4成果物一括', improvement: '4倍' },
+          { label: '所要時間', before: '1〜2日', after: '20分', improvement: '95~98%削減' },
+          { label: '成果物数', before: 'ER図のみ', after: '4成果物一括', improvement: '3~4倍' },
           { label: '設計精度', before: '担当者依存', after: '一定水準保証', improvement: '標準化' }
         ],
         skills: [
@@ -253,7 +254,7 @@
           items: ['15分で仕様書完成', 'RESTful規約に自動準拠', 'モック即時利用可能']
         },
         metrics: [
-          { label: '所要時間', before: '1日', after: '15分', improvement: '97%削減' },
+          { label: '所要時間', before: '1日', after: '15分', improvement: '95~97%削減' },
           { label: 'API一貫性', before: '60%', after: '100%', improvement: '完全統一' },
           { label: 'フロント待ち', before: '3日', after: '即日', improvement: '待ち時間ゼロ' }
         ],
@@ -278,7 +279,7 @@
           items: ['プロトタイプ生成 10分', 'リアルタイム修正可能', 'レスポンシブ自動対応']
         },
         metrics: [
-          { label: '初稿完成', before: '3〜5日', after: '10分', improvement: '99%削減' },
+          { label: '初稿完成', before: '3〜5日', after: '10分', improvement: '95~99%削減' },
           { label: '修正反映', before: '半日〜1日', after: '即時', improvement: 'リアルタイム' },
           { label: 'デバイス対応', before: '手動調整', after: '自動', improvement: '工数ゼロ' }
         ],
@@ -303,8 +304,8 @@
           items: ['1エンティティ 5分', 'テンプレート統一でバグ排除', 'バリデーション自動付与']
         },
         metrics: [
-          { label: '実装時間', before: '1〜2日', after: '5分', improvement: '99%削減' },
-          { label: 'バグ混入率', before: '15%', after: '2%以下', improvement: '7分の1' },
+          { label: '実装時間', before: '1〜2日', after: '5分', improvement: '95~99%削減' },
+          { label: 'バグ混入率', before: '15%', after: '2%以下', improvement: '5~7分の1' },
           { label: 'コード行数', before: '手書き800行', after: '自動生成800行', improvement: '工数ゼロ' }
         ],
         skills: [
@@ -328,9 +329,9 @@
           items: ['カバレッジ 90%超', '生成時間 3分', '境界値・異常系を網羅']
         },
         metrics: [
-          { label: 'カバレッジ', before: '35%', after: '92%', improvement: '2.6倍' },
-          { label: '作成時間', before: '実装の1.5倍', after: '3分', improvement: '99%削減' },
-          { label: 'リリース後障害', before: '月5件', after: '月0〜1件', improvement: '80%減' }
+          { label: 'カバレッジ', before: '35%', after: '92%', improvement: '2~3倍' },
+          { label: '作成時間', before: '実装の1.5倍', after: '3分', improvement: '95~99%削減' },
+          { label: 'リリース後障害', before: '月5件', after: '月0〜1件', improvement: '75~80%減' }
         ],
         skills: [
           { name: 'simplify', desc: 'テスト対象コードをリファクタ後にテスト再生成', type: 'skill' },
@@ -353,9 +354,9 @@
           items: ['レビュー完了 5分', '指摘基準が統一', '人間は設計レビューに集中']
         },
         metrics: [
-          { label: '待ち時間', before: '2〜3日', after: '5分', improvement: '99%削減' },
+          { label: '待ち時間', before: '2〜3日', after: '5分', improvement: '95~99%削減' },
           { label: '指摘検出率', before: 'レビュアー依存', after: '一定基準', improvement: '標準化' },
-          { label: 'レビュー工数', before: '30分/PR', after: '5分/PR', improvement: '83%削減' }
+          { label: 'レビュー工数', before: '30分/PR', after: '5分/PR', improvement: '80~85%削減' }
         ],
         skills: [
           { name: 'simplify', desc: 'レビュー指摘の自動修正とコード品質改善', type: 'skill' },
@@ -378,7 +379,7 @@
           items: ['スキャン 10分', '全コミット対象', '修正案自動提示']
         },
         metrics: [
-          { label: '診断時間', before: '2週間', after: '10分', improvement: '99.9%削減' },
+          { label: '診断時間', before: '2週間', after: '10分', improvement: '99~99.9%削減' },
           { label: '検出精度', before: '外部依存', after: 'OWASP準拠', improvement: '常時監視' },
           { label: '修正着手', before: '2週間後', after: '即日', improvement: '待ちゼロ' }
         ],
@@ -403,9 +404,9 @@
           items: ['原因特定 15分', '経験不問で一定品質', '影響範囲を自動マッピング']
         },
         metrics: [
-          { label: '原因特定', before: '数時間〜数日', after: '15分', improvement: '95%削減' },
-          { label: 'MTTR', before: '8時間', after: '1時間', improvement: '87%削減' },
-          { label: '再発率', before: '20%', after: '5%以下', improvement: '4分の1' }
+          { label: '原因特定', before: '数時間〜数日', after: '15分', improvement: '90~95%削減' },
+          { label: 'MTTR', before: '8時間', after: '1時間', improvement: '85~90%削減' },
+          { label: '再発率', before: '20%', after: '5%以下', improvement: '3~4分の1' }
         ],
         skills: [
           { name: 'claude-subconscious', desc: '過去のデバッグ履歴から類似パターンを即座に検索', type: 'hook' },
@@ -429,8 +430,8 @@
         },
         metrics: [
           { label: '負債可視化', before: '不可能', after: '自動スコアリング', improvement: '定量化' },
-          { label: '改善計画', before: '2週間', after: '30分', improvement: '99%削減' },
-          { label: '循環的複雑度', before: '平均18', after: '平均8', improvement: '55%改善' }
+          { label: '改善計画', before: '2週間', after: '30分', improvement: '95~99%削減' },
+          { label: '循環的複雑度', before: '平均18', after: '平均8', improvement: '50~60%改善' }
         ],
         skills: [
           { name: 'simplify', desc: 'リファクタリング後のコード品質を自動検証', type: 'skill' },
@@ -453,8 +454,8 @@
           items: ['解読 30分', 'フロー図自動生成', 'ロジックの意図を注釈']
         },
         metrics: [
-          { label: '理解時間', before: '2〜4週間', after: '30分', improvement: '99%削減' },
-          { label: 'オンボーディング', before: '1ヶ月', after: '2日', improvement: '93%削減' },
+          { label: '理解時間', before: '2〜4週間', after: '30分', improvement: '95~99%削減' },
+          { label: 'オンボーディング', before: '1ヶ月', after: '2日', improvement: '90~95%削減' },
           { label: '属人化リスク', before: '極めて高い', after: '文書化で解消', improvement: '排除' }
         ],
         skills: [
@@ -478,7 +479,7 @@
           items: ['充足率 95%', 'コード変更と同時更新', '自動生成で負担ゼロ']
         },
         metrics: [
-          { label: '充足率', before: '20%', after: '95%', improvement: '4.75倍' },
+          { label: '充足率', before: '20%', after: '95%', improvement: '4~5倍' },
           { label: '更新頻度', before: '年1回', after: 'コミットごと', improvement: 'リアルタイム' },
           { label: '作成工数', before: '2日/ドキュメント', after: '自動', improvement: '工数ゼロ' }
         ],
