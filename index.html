@@ -209,9 +209,9 @@
           { label: '手戻り回数', before: '平均3回', after: '0〜1回', improvement: '60~70%減' }
         ],
         skills: [
-          { name: 'pm-skills', desc: '要件の構造化・優先度付けを自動化', type: 'skill' },
-          { name: 'claude-subconscious', desc: 'ヒアリング内容をセッション横断で記憶', type: 'hook' },
-          { name: 'drawio', desc: 'ユースケース図・要件関連図をdraw.ioで出力', type: 'skill' }
+          { name: 'pm-skills', desc: '要件の構造化・優先度付けを自動化', type: 'skill', url: 'https://github.com/phuryn/pm-skills' },
+          { name: 'claude-subconscious', desc: 'ヒアリング内容をセッション横断で記憶', type: 'hook', url: 'https://github.com/letta-ai/claude-subconscious' },
+          { name: 'drawio', desc: 'ユースケース図・要件関連図をdraw.ioで出力', type: 'skill', url: 'https://github.com/jgraph/drawio-mcp' }
         ]
       },
       {
@@ -234,9 +234,9 @@
           { label: '設計精度', before: '担当者依存', after: '一定水準保証', improvement: '標準化' }
         ],
         skills: [
-          { name: 'drawio', desc: 'ER図をdraw.io形式で自動生成・編集', type: 'skill' },
-          { name: 'claude-code-spec-workflow', desc: 'スペック駆動でDB定義を段階的に精緻化', type: 'workflow' },
-          { name: 'site2skill', desc: 'DBドキュメントサイトからベストプラクティスを取り込み', type: 'tool' }
+          { name: 'drawio', desc: 'ER図をdraw.io形式で自動生成・編集', type: 'skill', url: 'https://github.com/jgraph/drawio-mcp' },
+          { name: 'claude-code-spec-workflow', desc: 'スペック駆動でDB定義を段階的に精緻化', type: 'workflow', url: 'https://github.com/Pimzino/claude-code-spec-workflow' },
+          { name: 'site2skill', desc: 'DBドキュメントサイトからベストプラクティスを取り込み', type: 'tool', url: 'https://github.com/laiso/site2skill' }
         ]
       },
       {
@@ -259,9 +259,9 @@
           { label: 'フロント待ち', before: '3日', after: '即日', improvement: '待ち時間ゼロ' }
         ],
         skills: [
-          { name: 'claude-api', desc: 'OpenAPI仕様からSDK・型定義を自動生成', type: 'skill' },
-          { name: 'claude-code-spec-workflow', desc: 'API仕様をスペック駆動で設計・検証', type: 'workflow' },
-          { name: 'drawio', desc: 'APIフロー図・シーケンス図を可視化', type: 'skill' }
+          { name: 'claude-api', desc: 'OpenAPI仕様からSDK・型定義を自動生成', type: 'skill', url: 'https://code.claude.com/docs/en/skills' },
+          { name: 'claude-code-spec-workflow', desc: 'API仕様をスペック駆動で設計・検証', type: 'workflow', url: 'https://github.com/Pimzino/claude-code-spec-workflow' },
+          { name: 'drawio', desc: 'APIフロー図・シーケンス図を可視化', type: 'skill', url: 'https://github.com/jgraph/drawio-mcp' }
         ]
       },
       {
@@ -284,9 +284,9 @@
           { label: 'デバイス対応', before: '手動調整', after: '自動', improvement: '工数ゼロ' }
         ],
         skills: [
-          { name: 'ui-ux-pro-max', desc: '50スタイル・21パレットからデザイン選定', type: 'skill' },
-          { name: 'Figma MCP', desc: 'Figmaデザインをコードにリアルタイム変換', type: 'mcp' },
-          { name: 'react-best-practices', desc: 'Reactコンポーネントの品質を自動最適化', type: 'skill' }
+          { name: 'ui-ux-pro-max', desc: '50スタイル・21パレットからデザイン選定', type: 'skill', url: 'https://github.com/nextlevelbuilder/ui-ux-pro-max-skill' },
+          { name: 'Figma MCP', desc: 'Figmaデザインをコードにリアルタイム変換', type: 'mcp', url: 'https://github.com/GLips/Figma-Context-MCP' },
+          { name: 'react-best-practices', desc: 'Reactコンポーネントの品質を自動最適化', type: 'skill', url: 'https://github.com/vercel-labs/agent-skills' }
         ]
       },
       {
@@ -309,9 +309,9 @@
           { label: 'コード行数', before: '手書き800行', after: '自動生成800行', improvement: '工数ゼロ' }
         ],
         skills: [
-          { name: 'claude-api', desc: 'APIルーティング・Zodバリデーションを一括生成', type: 'skill' },
-          { name: 'react-best-practices', desc: 'フロントCRUD画面のパフォーマンス最適化', type: 'skill' },
-          { name: 'claude-code-spec-workflow', desc: 'スキーマからCRUD仕様を段階的に導出', type: 'workflow' }
+          { name: 'claude-api', desc: 'APIルーティング・Zodバリデーションを一括生成', type: 'skill', url: 'https://code.claude.com/docs/en/skills' },
+          { name: 'react-best-practices', desc: 'フロントCRUD画面のパフォーマンス最適化', type: 'skill', url: 'https://github.com/vercel-labs/agent-skills' },
+          { name: 'claude-code-spec-workflow', desc: 'スキーマからCRUD仕様を段階的に導出', type: 'workflow', url: 'https://github.com/Pimzino/claude-code-spec-workflow' }
         ]
       },
       {
@@ -334,9 +334,9 @@
           { label: 'リリース後障害', before: '月5件', after: '月0〜1件', improvement: '75~80%減' }
         ],
         skills: [
-          { name: 'simplify', desc: 'テスト対象コードをリファクタ後にテスト再生成', type: 'skill' },
-          { name: 'claude-subconscious', desc: '過去のテスト失敗パターンを記憶して再利用', type: 'hook' },
-          { name: 'claude-code-spec-workflow', desc: '仕様からテスト観点を自動導出', type: 'workflow' }
+          { name: 'simplify', desc: 'テスト対象コードをリファクタ後にテスト再生成', type: 'skill', url: 'https://code.claude.com/docs/en/skills' },
+          { name: 'claude-subconscious', desc: '過去のテスト失敗パターンを記憶して再利用', type: 'hook', url: 'https://github.com/letta-ai/claude-subconscious' },
+          { name: 'claude-code-spec-workflow', desc: '仕様からテスト観点を自動導出', type: 'workflow', url: 'https://github.com/Pimzino/claude-code-spec-workflow' }
         ]
       },
       {
@@ -359,9 +359,9 @@
           { label: 'レビュー工数', before: '30分/PR', after: '5分/PR', improvement: '80~85%削減' }
         ],
         skills: [
-          { name: 'simplify', desc: 'レビュー指摘の自動修正とコード品質改善', type: 'skill' },
-          { name: 'web-design-guidelines', desc: 'UI変更PRのアクセシビリティ・UX準拠チェック', type: 'skill' },
-          { name: 'PreToolUse Hook', desc: 'PR作成時に自動レビューをトリガー', type: 'hook' }
+          { name: 'simplify', desc: 'レビュー指摘の自動修正とコード品質改善', type: 'skill', url: 'https://code.claude.com/docs/en/skills' },
+          { name: 'web-design-guidelines', desc: 'UI変更PRのアクセシビリティ・UX準拠チェック', type: 'skill', url: 'https://github.com/vercel-labs/agent-skills' },
+          { name: 'PreToolUse Hook', desc: 'PR作成時に自動レビューをトリガー', type: 'hook', url: 'https://code.claude.com/docs/en/hooks' }
         ]
       },
       {
@@ -384,9 +384,9 @@
           { label: '修正着手', before: '2週間後', after: '即日', improvement: '待ちゼロ' }
         ],
         skills: [
-          { name: 'PostToolUse Hook', desc: 'ファイル保存のたびにセキュリティスキャンを自動実行', type: 'hook' },
-          { name: 'simplify', desc: '脆弱性修正後のコード品質を検証', type: 'skill' },
-          { name: 'claude-subconscious', desc: '過去に検出した脆弱性パターンを蓄積・再利用', type: 'hook' }
+          { name: 'PostToolUse Hook', desc: 'ファイル保存のたびにセキュリティスキャンを自動実行', type: 'hook', url: 'https://code.claude.com/docs/en/hooks' },
+          { name: 'simplify', desc: '脆弱性修正後のコード品質を検証', type: 'skill', url: 'https://code.claude.com/docs/en/skills' },
+          { name: 'claude-subconscious', desc: '過去に検出した脆弱性パターンを蓄積・再利用', type: 'hook', url: 'https://github.com/letta-ai/claude-subconscious' }
         ]
       },
       {
@@ -409,9 +409,9 @@
           { label: '再発率', before: '20%', after: '5%以下', improvement: '3~4分の1' }
         ],
         skills: [
-          { name: 'claude-subconscious', desc: '過去のデバッグ履歴から類似パターンを即座に検索', type: 'hook' },
-          { name: 'drawio', desc: 'コールスタック・データフロー図を可視化', type: 'skill' },
-          { name: 'chrome-devtools MCP', desc: 'ブラウザのDevToolsログを直接取得・解析', type: 'mcp' }
+          { name: 'claude-subconscious', desc: '過去のデバッグ履歴から類似パターンを即座に検索', type: 'hook', url: 'https://github.com/letta-ai/claude-subconscious' },
+          { name: 'drawio', desc: 'コールスタック・データフロー図を可視化', type: 'skill', url: 'https://github.com/jgraph/drawio-mcp' },
+          { name: 'chrome-devtools MCP', desc: 'ブラウザのDevToolsログを直接取得・解析', type: 'mcp', url: 'https://github.com/ChromeDevTools/chrome-devtools-mcp' }
         ]
       },
       {
@@ -434,9 +434,9 @@
           { label: '循環的複雑度', before: '平均18', after: '平均8', improvement: '50~60%改善' }
         ],
         skills: [
-          { name: 'simplify', desc: 'リファクタリング後のコード品質を自動検証', type: 'skill' },
-          { name: 'claude-code-spec-workflow', desc: 'リファクタ計画をスペックとして管理', type: 'workflow' },
-          { name: 'claude-subconscious', desc: '過去のリファクタ判断を記憶し一貫性を維持', type: 'hook' }
+          { name: 'simplify', desc: 'リファクタリング後のコード品質を自動検証', type: 'skill', url: 'https://code.claude.com/docs/en/skills' },
+          { name: 'claude-code-spec-workflow', desc: 'リファクタ計画をスペックとして管理', type: 'workflow', url: 'https://github.com/Pimzino/claude-code-spec-workflow' },
+          { name: 'claude-subconscious', desc: '過去のリファクタ判断を記憶し一貫性を維持', type: 'hook', url: 'https://github.com/letta-ai/claude-subconscious' }
         ]
       },
       {
@@ -459,9 +459,9 @@
           { label: '属人化リスク', before: '極めて高い', after: '文書化で解消', improvement: '排除' }
         ],
         skills: [
-          { name: 'drawio', desc: 'レガシーコードの処理フロー図を自動生成', type: 'skill' },
-          { name: 'claude-subconscious', desc: '解読結果をセッション横断で蓄積・参照', type: 'hook' },
-          { name: 'site2skill', desc: 'フレームワーク公式ドキュメントを取り込んで解読精度UP', type: 'tool' }
+          { name: 'drawio', desc: 'レガシーコードの処理フロー図を自動生成', type: 'skill', url: 'https://github.com/jgraph/drawio-mcp' },
+          { name: 'claude-subconscious', desc: '解読結果をセッション横断で蓄積・参照', type: 'hook', url: 'https://github.com/letta-ai/claude-subconscious' },
+          { name: 'site2skill', desc: 'フレームワーク公式ドキュメントを取り込んで解読精度UP', type: 'tool', url: 'https://github.com/laiso/site2skill' }
         ]
       },
       {
@@ -484,9 +484,9 @@
           { label: '作成工数', before: '2日/ドキュメント', after: '自動', improvement: '工数ゼロ' }
         ],
         skills: [
-          { name: 'claude-code-spec-workflow', desc: 'コード変更と連動してドキュメントを自動更新', type: 'workflow' },
-          { name: 'drawio', desc: 'アーキテクチャ図・デプロイ構成図を自動生成', type: 'skill' },
-          { name: 'PostToolUse Hook', desc: 'ファイル編集のたびに関連ドキュメントを自動更新', type: 'hook' }
+          { name: 'claude-code-spec-workflow', desc: 'コード変更と連動してドキュメントを自動更新', type: 'workflow', url: 'https://github.com/Pimzino/claude-code-spec-workflow' },
+          { name: 'drawio', desc: 'アーキテクチャ図・デプロイ構成図を自動生成', type: 'skill', url: 'https://github.com/jgraph/drawio-mcp' },
+          { name: 'PostToolUse Hook', desc: 'ファイル編集のたびに関連ドキュメントを自動更新', type: 'hook', url: 'https://code.claude.com/docs/en/hooks' }
         ]
       }
     ];
@@ -580,13 +580,13 @@
           </div>
           <div class="divide-y divide-warm-100">
             ${theme.skills.map(s => `
-              <div class="px-4 py-3 flex items-start gap-3">
+              <a href="${s.url}" target="_blank" rel="noopener noreferrer" class="px-4 py-3 flex items-start gap-3 hover:bg-warm-50 transition-colors no-underline" style="text-decoration:none">
                 <span class="inline-block px-2 py-0.5 text-[10px] font-semibold rounded border ${typeColors[s.type] || typeColors.skill} mt-0.5 flex-shrink-0">${typeLabels[s.type] || s.type}</span>
-                <div class="min-w-0">
-                  <div class="text-sm font-semibold text-navy-700">${s.name}</div>
+                <div class="min-w-0 flex-1">
+                  <div class="text-sm font-semibold text-navy-700 flex items-center gap-1.5">${s.name}<svg class="w-3 h-3 text-warm-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg></div>
                   <div class="text-xs text-warm-500 mt-0.5">${s.desc}</div>
                 </div>
-              </div>
+              </a>
             `).join('')}
           </div>
         </div>
