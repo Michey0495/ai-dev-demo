@@ -147,20 +147,31 @@
       <div class="px-6 py-6 overflow-y-auto modal-scroll flex-1">
         <p id="modal-desc" class="text-warm-600 text-sm mb-8 leading-relaxed"></p>
 
+        <!-- 数値比較（Before → After バー） -->
+        <div id="modal-metrics" class="mb-8"></div>
+
         <!-- Before / After 比較 -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-          <div class="border border-warm-200 rounded-lg overflow-hidden">
-            <div class="bg-warm-100 px-4 py-2 text-xs font-semibold text-warm-600 uppercase tracking-wide">Before</div>
-            <div id="modal-before" class="px-4 py-4 text-sm text-warm-700 leading-relaxed"></div>
+        <div class="relative mb-8">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-0 md:gap-0">
+            <div class="border border-warm-200 rounded-t-lg md:rounded-l-lg md:rounded-tr-none overflow-hidden">
+              <div class="bg-warm-100 px-4 py-2.5 flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-warm-400"></span>
+                <span class="text-xs font-semibold text-warm-600 uppercase tracking-wide">Before -- 従来の方法</span>
+              </div>
+              <div id="modal-before" class="px-4 py-4 text-sm text-warm-600 leading-relaxed bg-warm-50/50"></div>
+            </div>
+            <div class="border border-navy-200 rounded-b-lg md:rounded-r-lg md:rounded-bl-none overflow-hidden">
+              <div class="bg-navy-600 px-4 py-2.5 flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-white"></span>
+                <span class="text-xs font-semibold text-white uppercase tracking-wide">After -- AIを使うと</span>
+              </div>
+              <div id="modal-after" class="px-4 py-4 text-sm text-warm-700 leading-relaxed bg-navy-50/30"></div>
+            </div>
           </div>
-          <div class="border border-navy-200 rounded-lg overflow-hidden">
-            <div class="bg-navy-50 px-4 py-2 text-xs font-semibold text-navy-600 uppercase tracking-wide">After</div>
-            <div id="modal-after" class="px-4 py-4 text-sm text-warm-700 leading-relaxed"></div>
+          <div class="hidden md:flex absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 w-10 h-10 bg-navy-600 rounded-full items-center justify-center shadow-lg">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
           </div>
         </div>
-
-        <!-- 数値比較 -->
-        <div id="modal-metrics" class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8"></div>
 
         <!-- 推奨Skills構成 -->
         <div id="modal-skills" class="mb-8"></div>
@@ -194,19 +205,19 @@
         folder: '01_requirements',
         title: '要求分析',
         summary: '曖昧な要望から構造化された要件定義書を数分で生成',
-        desc: 'ヒアリングメモや議事録をインプットに、ユースケース図、機能一覧、非機能要件を含む要件定義書を自動生成する。人手で2〜3日かかっていた初稿作成が、30分以内に完了する。',
+        desc: 'ヒアリングメモや議事録をインプットに、ユースケース図、機能一覧、非機能要件を含む要件定義書を自動生成する。人手で30-45分かかっていた初稿作成が、3-5分で完了する。',
         before: {
           text: 'ヒアリング後、担当者が手動でExcelやWordに要件を整理。表記ゆれ、抜け漏れが頻発し、手戻りが常態化していた。',
-          items: ['整理に2〜3日', '抜け漏れ率 約30%', 'フォーマットがバラバラ']
+          items: ['整理に30-45分', '94行の薄い要件書', '非機能要件が丸ごと欠落']
         },
         after: {
-          text: '議事録テキストを投入するだけで、構造化された要件定義書のドラフトが出力される。抜け漏れチェックも自動で走る。',
-          items: ['30分で初稿完成', '抜け漏れ検出率 95%', '統一フォーマット出力']
+          text: '議事録テキストを投入するだけで、325行超の構造化された要件定義書が出力される。非機能要件や利害衝突の検出も自動。',
+          items: ['3-5分で初稿完成', '325行超の網羅的な出力', '13件の利害衝突を自動検出']
         },
         metrics: [
-          { label: '所要時間', before: '2〜3日', after: '30分', improvement: '90~95%削減' },
-          { label: '抜け漏れ率', before: '30%', after: '5%以下', improvement: '5~6分の1' },
-          { label: '手戻り回数', before: '平均3回', after: '0〜1回', improvement: '60~70%減' }
+          { label: '所要時間', before: '30-45分', after: '3-5分', improvement: '約90%削減' },
+          { label: '出力量', before: '94行', after: '325行超', improvement: '3.5倍' },
+          { label: '非機能要件', before: '0件（欠落）', after: '10カテゴリ網羅', improvement: '全量カバー' }
         ],
         skills: [
           { name: 'pm-skills', desc: '要件の構造化・優先度付けを自動化', type: 'skill', url: 'https://github.com/phuryn/pm-skills' },
@@ -226,10 +237,10 @@
         },
         after: {
           text: '要件テキストからテーブル構造を推論し、ER図・DDL・シードデータをセットで出力。正規化レベルの提案付き。',
-          items: ['20分で設計完了', '第三正規形まで自動判定', 'シードデータ同時生成']
+          items: ['15-20分で設計完了', '第三正規形まで自動判定', 'シードデータ同時生成']
         },
         metrics: [
-          { label: '所要時間', before: '1〜2日', after: '20分', improvement: '95~98%削減' },
+          { label: '所要時間', before: '1〜2日', after: '15-20分', improvement: '95~98%削減' },
           { label: '成果物数', before: 'ER図のみ', after: '4成果物一括', improvement: '3~4倍' },
           { label: '設計精度', before: '担当者依存', after: '一定水準保証', improvement: '標準化' }
         ],
@@ -301,12 +312,12 @@
         },
         after: {
           text: 'テーブル定義を読み込み、CRUD一式を型安全に生成。バリデーションルールはスキーマから自動導出される。',
-          items: ['1エンティティ 5分', 'テンプレート統一でバグ排除', 'バリデーション自動付与']
+          items: ['1エンティティ 15分', 'テンプレート統一でバグ排除', 'バリデーション自動付与']
         },
         metrics: [
-          { label: '実装時間', before: '1〜2日', after: '5分', improvement: '95~99%削減' },
-          { label: 'バグ混入率', before: '15%', after: '2%以下', improvement: '5~7分の1' },
-          { label: 'コード行数', before: '手書き800行', after: '自動生成800行', improvement: '工数ゼロ' }
+          { label: '実装時間', before: '1〜2日', after: '15分', improvement: '95~98%削減' },
+          { label: 'コード量', before: 'TODOだらけの66行', after: '完成済み329行', improvement: '5倍' },
+          { label: 'バリデーション', before: '手動で漏れ多発', after: 'Zodで自動付与', improvement: '完全網羅' }
         ],
         skills: [
           { name: 'claude-api', desc: 'APIルーティング・Zodバリデーションを一括生成', type: 'skill', url: 'https://code.claude.com/docs/en/skills' },
@@ -326,12 +337,12 @@
         },
         after: {
           text: '実装コードを渡すだけで、カバレッジ90%超のテストスイートが生成される。境界値やエッジケースも自動検出。',
-          items: ['カバレッジ 90%超', '生成時間 3分', '境界値・異常系を網羅']
+          items: ['テスト件数 5件 → 80件', '生成時間 3分', '境界値・うるう年・祝日まで網羅']
         },
         metrics: [
-          { label: 'カバレッジ', before: '35%', after: '92%', improvement: '2~3倍' },
-          { label: '作成時間', before: '実装の1.5倍', after: '3分', improvement: '95~99%削減' },
-          { label: 'リリース後障害', before: '月5件', after: '月0〜1件', improvement: '75~80%減' }
+          { label: 'テスト件数', before: '5件', after: '80件', improvement: '16倍' },
+          { label: '対象関数', before: '1-2関数のみ', after: '10関数 全網羅', improvement: '完全カバー' },
+          { label: '境界値テスト', before: '0件', after: '自動検出・生成', improvement: '全量カバー' }
         ],
         skills: [
           { name: 'simplify', desc: 'テスト対象コードをリファクタ後にテスト再生成', type: 'skill', url: 'https://code.claude.com/docs/en/skills' },
@@ -351,12 +362,12 @@
         },
         after: {
           text: 'PR作成と同時にAIレビューが走り、数分で指摘が返る。人間のレビュアーは設計判断に集中できる。',
-          items: ['レビュー完了 5分', '指摘基準が統一', '人間は設計レビューに集中']
+          items: ['レビュー完了 30秒', '脆弱性4件をCWE番号付きで検出', '人間は設計レビューに集中']
         },
         metrics: [
-          { label: '待ち時間', before: '2〜3日', after: '5分', improvement: '95~99%削減' },
-          { label: '指摘検出率', before: 'レビュアー依存', after: '一定基準', improvement: '標準化' },
-          { label: 'レビュー工数', before: '30分/PR', after: '5分/PR', improvement: '80~85%削減' }
+          { label: 'レビュー時間', before: '20分', after: '30秒', improvement: '約40倍速' },
+          { label: '指摘件数', before: '2件（命名のみ）', after: '12件（脆弱性含む）', improvement: '6倍' },
+          { label: '脆弱性検出', before: '0件', after: '4件（CWE付き）', improvement: '見落とし解消' }
         ],
         skills: [
           { name: 'simplify', desc: 'レビュー指摘の自動修正とコード品質改善', type: 'skill', url: 'https://code.claude.com/docs/en/skills' },
@@ -379,9 +390,9 @@
           items: ['スキャン 10分', '全コミット対象', '修正案自動提示']
         },
         metrics: [
-          { label: '診断時間', before: '2週間', after: '10分', improvement: '99~99.9%削減' },
-          { label: '検出精度', before: '外部依存', after: 'OWASP準拠', improvement: '常時監視' },
-          { label: '修正着手', before: '2週間後', after: '即日', improvement: '待ちゼロ' }
+          { label: '脆弱性検出', before: '6/10件', after: '10/10件', improvement: '完全検出' },
+          { label: 'Critical検出', before: '0件（見逃し3件）', after: '3件 全検出', improvement: '見落としゼロ' },
+          { label: '修正コード', before: 'なし（自力調査）', after: '全件に修正案付き', improvement: '即座に対応可' }
         ],
         skills: [
           { name: 'PostToolUse Hook', desc: 'ファイル保存のたびにセキュリティスキャンを自動実行', type: 'hook', url: 'https://code.claude.com/docs/en/hooks' },
@@ -401,12 +412,12 @@
         },
         after: {
           text: 'エラー情報を貼り付けるだけで、原因候補の絞り込みと修正パッチが提示される。影響範囲も自動で分析。',
-          items: ['原因特定 15分', '経験不問で一定品質', '影響範囲を自動マッピング']
+          items: ['原因特定 5分', '経験不問で一定品質', '影響範囲を自動マッピング']
         },
         metrics: [
-          { label: '原因特定', before: '数時間〜数日', after: '15分', improvement: '90~95%削減' },
-          { label: 'MTTR', before: '8時間', after: '1時間', improvement: '85~90%削減' },
-          { label: '再発率', before: '20%', after: '5%以下', improvement: '3~4分の1' }
+          { label: '原因特定', before: '2時間', after: '5分', improvement: '約24倍速' },
+          { label: 'ログ分類', before: '目視で拾い読み', after: '25件を自動分類', improvement: '全量解析' },
+          { label: '根本原因', before: '推測ベース', after: 'パターン法則で特定', improvement: '再現性あり' }
         ],
         skills: [
           { name: 'claude-subconscious', desc: '過去のデバッグ履歴から類似パターンを即座に検索', type: 'hook', url: 'https://github.com/letta-ai/claude-subconscious' },
@@ -451,12 +462,12 @@
         },
         after: {
           text: 'ソースコードを投入するだけで、処理の流れを図解付きで解説。変数名やロジックの意図まで推定して注釈を付ける。',
-          items: ['解読 30分', 'フロー図自動生成', 'ロジックの意図を注釈']
+          items: ['解読 30秒', 'フロー図自動生成', '全関数を自然言語で解説']
         },
         metrics: [
-          { label: '理解時間', before: '2〜4週間', after: '30分', improvement: '95~99%削減' },
-          { label: 'オンボーディング', before: '1ヶ月', after: '2日', improvement: '90~95%削減' },
-          { label: '属人化リスク', before: '極めて高い', after: '文書化で解消', improvement: '排除' }
+          { label: '理解時間', before: '8時間', after: '30秒', improvement: '約960倍速' },
+          { label: '理解度', before: '50%（推測混じり）', after: '100%（全関数解説）', improvement: '完全把握' },
+          { label: '変数名解読', before: '1文字変数を推測', after: '意味を自動復元', improvement: '即座に判明' }
         ],
         skills: [
           { name: 'drawio', desc: 'レガシーコードの処理フロー図を自動生成', type: 'skill', url: 'https://github.com/jgraph/drawio-mcp' },
@@ -532,12 +543,12 @@
       document.getElementById('modal-desc').textContent = theme.desc;
 
       document.getElementById('modal-before').innerHTML = `
-        <p class="mb-3">${theme.before.text}</p>
-        <ul class="space-y-1.5">
+        <p class="mb-3 text-warm-500">${theme.before.text}</p>
+        <ul class="space-y-2">
           ${theme.before.items.map(item => `
             <li class="flex items-start gap-2 text-warm-500">
-              <span class="mt-1.5 w-1.5 h-1.5 rounded-full bg-warm-300 flex-shrink-0"></span>
-              ${item}
+              <svg class="w-4 h-4 mt-0.5 flex-shrink-0 text-warm-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+              <span>${item}</span>
             </li>
           `).join('')}
         </ul>
@@ -545,22 +556,31 @@
 
       document.getElementById('modal-after').innerHTML = `
         <p class="mb-3">${theme.after.text}</p>
-        <ul class="space-y-1.5">
+        <ul class="space-y-2">
           ${theme.after.items.map(item => `
-            <li class="flex items-start gap-2 text-navy-600">
-              <span class="mt-1.5 w-1.5 h-1.5 rounded-full bg-navy-400 flex-shrink-0"></span>
-              ${item}
+            <li class="flex items-start gap-2 text-navy-700">
+              <svg class="w-4 h-4 mt-0.5 flex-shrink-0 text-navy-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+              <span class="font-medium">${item}</span>
             </li>
           `).join('')}
         </ul>
       `;
 
-      document.getElementById('modal-metrics').innerHTML = theme.metrics.map(m => `
-        <div class="bg-warm-50 rounded-lg p-4 text-center">
-          <div class="text-xs text-warm-400 mb-2">${m.label}</div>
-          <div class="text-xs text-warm-500 line-through mb-1">${m.before}</div>
-          <div class="text-lg font-bold text-navy-600">${m.after}</div>
-          <div class="text-xs text-navy-400 mt-1">${m.improvement}</div>
+      document.getElementById('modal-metrics').innerHTML = `
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          ${theme.metrics.map(m => `
+          <div class="border border-warm-200 rounded-lg overflow-hidden">
+            <div class="px-4 py-2 bg-warm-50 text-xs font-semibold text-warm-600">${m.label}</div>
+            <div class="px-4 py-3">
+              <div class="flex items-center gap-2 mb-2">
+                <span class="text-sm text-warm-400 line-through">${m.before}</span>
+                <svg class="w-4 h-4 text-navy-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                <span class="text-sm font-bold text-navy-600">${m.after}</span>
+              </div>
+              <div class="text-xs font-semibold text-navy-500 bg-navy-50 rounded px-2 py-0.5 inline-block">${m.improvement}</div>
+            </div>
+          </div>
+          `).join('')}
         </div>
       `).join('');
 
